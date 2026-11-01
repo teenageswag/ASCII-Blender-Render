@@ -59,6 +59,20 @@ Hover a numeric setting or color and press **I** to insert a keyframe.
 
 ## Renderer support
 
+## Smart matching (1.2.0)
+
+**Matching → Classic** retains the 1.1 appearance and ramp order. **Smart** uses six samples per cell, a blurred, surface-weighted neighborhood and a noise floor for local tone adaptation. **Local Adaptation**, **Noise Floor**, and **Shape Matching** control these effects. Smart orders candidates by actual bitmap ink coverage, independently of custom ramp order, and compares 2×3 coverage descriptors of five neighboring candidates. Directional contours follow the brightness gradient. This is coarse shape matching, not exhaustive pixel matching; details smaller than a cell cannot be recovered, and animated threshold crossings can still flicker.
+
+**Scale Variation**, **Minimum Scale**, and **Maximum Scale** vary individual glyph sizes with tone and edge importance. Smart clips glyphs to their cells. **Saturation**, **Color Brightness**, and **Minimum Contrast** control cell colors. Minimum Contrast is a linear-luminance difference against Background for opaque ink at full Strength, before the scene view transform. Transparent output uses Background as a reference; an arbitrary background added later cannot be guaranteed.
+
+**Color Source → Diffuse Color** uses unlit diffuse color, without emission. It automatically falls back to Combined if the pass is missing (including Cycles live preview); the panel identifies this renderer limitation. Combined includes shading and emission. Surface-aware neighborhoods also fall back to image-only analysis when viewport passes are unavailable.
+
+| Classic, 64 columns | Smart, 64 columns |
+| :---: | :---: |
+| ![Classic checker cube and Suzanne](docs/images/smart-before.png) | ![Smart checker cube and Suzanne](docs/images/smart-after.png) |
+
+### Renderer support
+
 Tested in **Blender 5.2.3 LTS on Windows**.
 
 | Renderer | Full-frame live preview | Object/world masks in live preview | Still & animation renders |

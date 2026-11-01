@@ -48,6 +48,7 @@ def draw_panel(layout, context):
             box.label(text='Use EEVEE for selective live preview.')
     box = body.box()
     box.label(text='Characters', icon='FONT_DATA')
+    box.prop(settings, 'match_mode', expand=True)
     box.prop(settings, 'columns')
     box.prop(settings, 'cell_aspect')
     box.prop(settings, 'glyph_scale')
@@ -59,6 +60,14 @@ def draw_panel(layout, context):
         if not any(32 <= ord(c) <= 126 for c in settings.custom_characters):
             box.label(text='Empty ramp: Classic is used.', icon='INFO')
     box.prop(settings, 'sort_by_density')
+    if settings.match_mode == 'SMART':
+        box.label(text='Smart searches in ink-density order.', icon='INFO')
+        box.prop(settings, 'shape_strength', slider=True)
+        box.prop(settings, 'scale_strength', slider=True)
+        scales = box.column(align=True)
+        scales.active = settings.scale_strength > 0
+        scales.prop(settings, 'min_scale')
+        scales.prop(settings, 'max_scale')
 
     box = body.box()
     box.label(text='Color', icon='COLOR')
@@ -67,6 +76,15 @@ def draw_panel(layout, context):
         box.prop(settings, 'foreground')
     else:
         box.prop(settings, 'color_gain', text='Brightness')
+        if settings.match_mode == 'SMART':
+            box.prop(settings, 'color_source')
+            box.prop(settings, 'saturation')
+            if settings.color_source == 'DIFFUSE':
+                if scene.render.engine == 'CYCLES':
+                    box.label(text='Live: Combined · F12: Diffuse Color', icon='INFO')
+                box.label(text='Diffuse Color excludes emission.', icon='INFO')
+    if settings.match_mode == 'SMART':
+        box.prop(settings, 'min_contrast')
     background = box.column()
     background.active = not settings.transparent_background
     background.prop(settings, 'background')
@@ -74,6 +92,9 @@ def draw_panel(layout, context):
 
     box = body.box()
     box.label(text='Tone', icon='IMAGE_RGB')
+    if settings.match_mode == 'SMART':
+        box.prop(settings, 'adaptive_strength', slider=True)
+        box.prop(settings, 'adaptive_floor')
     box.prop(settings, 'exposure', text='Exposure')
     for name in ('contrast', 'gamma', 'invert'):
         box.prop(settings, name)

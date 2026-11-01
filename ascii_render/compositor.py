@@ -3,9 +3,10 @@
 import bpy
 
 from .glyphs import atlas_for, character_ramp
+from . import smart
 
 OWNER = 'ascii_render_owned'
-SCHEMA = 2
+SCHEMA = 3
 
 # All changing numbers are group inputs driven from the owning Scene. This keeps
 # animation in Blender's dependency graph; there are no per-frame Python hooks.
@@ -27,6 +28,15 @@ CONTROLS = (
     ('Strength', 'NodeSocketFloat', 'strength', 'value'),
     ('Enabled', 'NodeSocketFloat', 'enabled', 'value'),
     ('World Mode', 'NodeSocketFloat', 'world_mode', 'value'),
+    ('Match Mode', 'NodeSocketFloat', 'match_mode', 'value'),
+    ('Adaptive Strength', 'NodeSocketFloat', 'adaptive_strength', 'value'),
+    ('Adaptive Floor', 'NodeSocketFloat', 'adaptive_floor', 'value'),
+    ('Shape Strength', 'NodeSocketFloat', 'shape_strength', 'value'),
+    ('Min Scale', 'NodeSocketFloat', 'min_scale', 'value'),
+    ('Max Scale', 'NodeSocketFloat', 'max_scale', 'value'),
+    ('Scale Strength', 'NodeSocketFloat', 'scale_strength', 'value'),
+    ('Saturation', 'NodeSocketFloat', 'saturation', 'value'),
+    ('Minimum Contrast', 'NodeSocketFloat', 'min_contrast', 'value'),
 )
 
 
@@ -102,6 +112,7 @@ def build_effect(settings):
         tree.interface.new_socket(name=name, in_out='INPUT', socket_type=socket_type)
     tree.interface.new_socket(name='Object Mask', in_out='INPUT', socket_type='NodeSocketColor')
     tree.interface.new_socket(name='Use Object Mask', in_out='INPUT', socket_type='NodeSocketFloat')
+    tree.interface.new_socket(name='Albedo', in_out='INPUT', socket_type='NodeSocketColor')
     tree.interface.new_socket(name='Image', in_out='OUTPUT', socket_type='NodeSocketColor')
     g = Graph(tree)
     inputs = g.node('NodeGroupInput', 'Settings').outputs
@@ -137,6 +148,11 @@ def build_effect(settings):
     tone = g.mix(inputs['Invert'], tone, g.math('SUBTRACT', 1, tone), label='Invert density')
     ramp = character_ramp(settings)
     index = g.math('MINIMUM', g.math('FLOOR', g.math('MULTIPLY', tone, len(ramp), label='Fill glyph index')), len(ramp) - 1, label='Last fill index')
+    atlas_image = atlas_for(ramp)
+    smart_tone, pattern, smart_dx, smart_dy = smart.analyze(
+        g, inputs, original, dimensions, columns, rows, center_u, center_v)
+    smart_index = smart.match(g, inputs, smart_tone, pattern, ramp, atlas_image)
+    index = g.mix(inputs['Match Mode'], index, smart_index, label='Classic or Smart matching')
 
     # Central differences at cell boundaries give a gradient shared by the whole
     # cell. Its perpendicular selects -, |, / or \\ as the contour tangent.
@@ -152,6 +168,8 @@ def build_effect(settings):
         neighbors.append(g.math('POWER', g.math('MAXIMUM', value, 0), 1 / 2.2))
     dx = g.math('SUBTRACT', neighbors[1], neighbors[0])
     dy = g.math('SUBTRACT', neighbors[3], neighbors[2])
+    dx = g.mix(inputs['Match Mode'], dx, smart_dx)
+    dy = g.mix(inputs['Match Mode'], dy, smart_dy)
     ax, ay = g.math('ABSOLUTE', dx), g.math('ABSOLUTE', dy)
     magnitude = g.math('SQRT', g.math('ADD', g.math('MULTIPLY', dx, dx), g.math('MULTIPLY', dy, dy)))
     diagonal = g.mix(g.math('GREATER_THAN', g.math('MULTIPLY', dx, dy), 0), 2, 3)
@@ -163,14 +181,21 @@ def build_effect(settings):
 
     # Scaling local UVs changes ink size without changing grid spacing. Explicit
     # bounds prevent neighboring atlas glyphs leaking when scale is below one.
-    local_u = g.math('ADD', g.math('DIVIDE', g.math('SUBTRACT', local_u, 0.5), inputs['Glyph Scale']), 0.5)
-    local_v = g.math('ADD', g.math('DIVIDE', g.math('SUBTRACT', local_v, 0.5), inputs['Glyph Scale']), 0.5)
+    importance = g.math('MAXIMUM', smart_tone, g.math('MULTIPLY', magnitude, 2, clamp=True))
+    small = g.math('MINIMUM', inputs['Min Scale'], inputs['Max Scale'])
+    large = g.math('MAXIMUM', inputs['Min Scale'], inputs['Max Scale'])
+    varying_scale = g.mix(importance, small, large, label='Per-cell glyph size')
+    smart_scale = g.math('MINIMUM', g.math('MULTIPLY', inputs['Glyph Scale'],
+        g.mix(inputs['Scale Strength'], 1, varying_scale)), 1)
+    scale = g.mix(inputs['Match Mode'], inputs['Glyph Scale'], smart_scale)
+    local_u = g.math('ADD', g.math('DIVIDE', g.math('SUBTRACT', local_u, 0.5), scale), 0.5)
+    local_v = g.math('ADD', g.math('DIVIDE', g.math('SUBTRACT', local_v, 0.5), scale), 0.5)
     bounds = 1.0
     for coordinate in (local_u, local_v):
         bounds = g.math('MULTIPLY', bounds, g.math('GREATER_THAN', coordinate, 0))
         bounds = g.math('MULTIPLY', bounds, g.math('LESS_THAN', coordinate, 1))
     atlas = g.node('CompositorNodeImage', 'Glyph atlas')
-    atlas.image = atlas_for(ramp)
+    atlas.image = atlas_image
     mask = g.luminance(g.sample(atlas.outputs[0], g.math('DIVIDE', g.math('ADD', index, local_u), len(ramp) + 4, label='Atlas U'), local_v, 'Glyph lookup', nearest=True), 'Glyph mask')
     mask = g.math('MULTIPLY', mask, bounds)
     separate = g.node('CompositorNodeSeparateColor', 'Source alpha')
@@ -181,6 +206,17 @@ def build_effect(settings):
     g.put(color.inputs[0], sampled)
     g.put(color.inputs['Scale'], inputs['Color Gain'])
     ink = g.mix(inputs['Color Mode'], inputs['Foreground'], color.outputs['Vector'], color=True, label='Monochrome or color')
+    albedo_info = g.node('CompositorNodeImageInfo', 'Albedo availability')
+    g.put(albedo_info.inputs[0], inputs['Albedo'])
+    albedo_available = g.math('GREATER_THAN', g.separate(albedo_info.outputs['Dimensions'], 'Albedo dimensions')[0], 1)
+    color_source = g.mix(albedo_available, original, inputs['Albedo'], color=True, label='Albedo or Combined fallback')
+    averaged_color = smart.blur(g, color_source, dimensions, columns, rows, 0.35, 'Smart color averaging')
+    smart_color = g.sample(averaged_color, center_u, center_v, 'Smart cell color')
+    smart_ink = g.mix(inputs['Color Mode'], inputs['Foreground'], smart_color, color=True)
+    smart_ink = smart.readable_color(g, smart_ink, inputs['Background'],
+        g.mix(inputs['Color Mode'], 1, inputs['Saturation']),
+        g.mix(inputs['Color Mode'], 1, inputs['Color Gain']), inputs['Minimum Contrast'])
+    ink = g.mix(inputs['Match Mode'], ink, smart_ink, color=True, label='Classic or Smart ink')
     background = g.mix(inputs['Transparent'], inputs['Background'], (0, 0, 0, 1), color=True, label='Background color')
     art = g.mix(mask, background, ink, color=True, label='Draw glyphs')
     alpha = g.node('CompositorNodeSetAlpha', 'Output transparency')
@@ -228,7 +264,7 @@ def bind_controls(node, scene):
     for name, socket_type, prop, expression in CONTROLS:
         socket = node.inputs[name]
         value = getattr(scene.ascii_render, prop)
-        if prop in {'color_mode', 'world_mode'}:
+        if scene.ascii_render.bl_rna.properties[prop].type == 'ENUM':
             value = next(item.value for item in scene.ascii_render.bl_rna.properties[prop].enum_items
                          if item.identifier == value)
         socket.default_value = value
@@ -265,7 +301,17 @@ def upgrade(scene):
     if node is None or node.node_tree.get('ascii_schema', 0) >= SCHEMA:
         return
     old = node.node_tree
+    links = [(socket.name, socket.links[0].from_socket) for socket in node.inputs if socket.is_linked]
+    values = {socket.name: socket.default_value[:] if socket.type in {'RGBA', 'VECTOR'} else socket.default_value
+              for socket in node.inputs if hasattr(socket, 'default_value')}
+    freeze_controls(node)
     node.node_tree = build_effect(scene.ascii_render)
+    for name, value in values.items():
+        if name in node.inputs:
+            node.inputs[name].default_value = value
+    for name, source in links:
+        if name in node.inputs:
+            scene.compositing_node_group.links.new(source, node.inputs[name])
     bind_controls(node, scene)
     if old.users == 0:
         bpy.data.node_groups.remove(old)
@@ -338,14 +384,24 @@ def refresh_atlas(scene):
         return
     ramp = character_ramp(scene.ascii_render)
     tree = node.node_tree
-    old = tree.nodes['Glyph atlas'].image
-    tree.nodes['Glyph atlas'].image = atlas_for(ramp)
+    old_images = [n.image for n in tree.nodes if n.type == 'IMAGE' and n.image]
+    atlas = atlas_for(ramp)
+    tree.nodes['Glyph atlas'].image = atlas
+    for name, image in zip(('Glyph descriptors', 'Glyph features', 'Glyph density order'), smart.descriptors_for(atlas)):
+        tree.nodes[name].image = image
     tree.nodes['Fill glyph index'].inputs[1].default_value = len(ramp)
     tree.nodes['Last fill index'].inputs[1].default_value = len(ramp) - 1
     tree.nodes['Contour atlas offset'].inputs[1].default_value = len(ramp)
     tree.nodes['Atlas U'].inputs[1].default_value = len(ramp) + 4
-    if old and old.users == 0 and old.get(OWNER):
-        bpy.data.images.remove(old)
+    count = len(ramp) + 4
+    tree.nodes['Smart rank count'].inputs[1].default_value = count - 1
+    for offset in (0, -1, 1, -2, 2):
+        tree.nodes[f'Smart candidate {offset}'].inputs[1].default_value = count - 1
+        tree.nodes[f'Descriptor U {offset}'].inputs[1].default_value = count
+        tree.nodes[f'Smart atlas count {offset}'].inputs[1].default_value = count - 1
+    for old in old_images:
+        if old.users == 0 and old.get(OWNER):
+            bpy.data.images.remove(old)
 
 
 def remove(scene):

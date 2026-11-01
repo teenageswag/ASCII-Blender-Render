@@ -9,6 +9,7 @@ EXCLUDE_KEY = '_ascii_render_exclude'
 OWNED = 'ascii_render_mask_owned'
 DEFAULT_SLOT = '_ascii_render_default_slot'
 AOV_LAYERS = '_ascii_render_aov_layers'
+DIFFUSE_LAYERS = '_ascii_render_diffuse_layers'
 _busy = False
 _pending = set()
 
@@ -68,13 +69,23 @@ def sync_scene(scene):
         effect = compositor.effect_node(scene)
     active = needs_mask(scene)
     _set(effect.inputs['Use Object Mask'], float(active))
-    if not active:
+    analysis = scene.ascii_render.match_mode == 'SMART'
+    diffuse = scene.ascii_render.color_source == 'DIFFUSE'
+    if not diffuse and effect.inputs['Albedo'].is_linked:
+        for link in list(effect.inputs['Albedo'].links):
+            scene.compositing_node_group.links.remove(link)
+    if not (active or analysis or diffuse):
         return
     _busy = True
     try:
         owned_layers = dict(scene.get(AOV_LAYERS, {}))
+        diffuse_layers = dict(scene.get(DIFFUSE_LAYERS, {}))
         passes_changed = False
         for layer in scene.view_layers:
+            if diffuse and not layer.use_pass_diffuse_color:
+                layer.use_pass_diffuse_color = True
+                diffuse_layers[layer.name] = True
+                passes_changed = True
             if not any(a.name == AOV_NAME for a in layer.aovs):
                 entry = layer.aovs.add()
                 entry.name = AOV_NAME
@@ -85,6 +96,8 @@ def sync_scene(scene):
                 _prepare_material(layer.material_override)
         if owned_layers != dict(scene.get(AOV_LAYERS, {})):
             scene[AOV_LAYERS] = owned_layers
+        if diffuse_layers != dict(scene.get(DIFFUSE_LAYERS, {})):
+            scene[DIFFUSE_LAYERS] = diffuse_layers
         for obj in scene.objects:
             data = obj.data
             if data is None or not hasattr(data, 'materials'):
@@ -122,6 +135,11 @@ def sync_scene(scene):
             target = effect.inputs['Object Mask']
             if not target.is_linked or target.links[0].from_socket != output:
                 tree.links.new(output, target)
+        if diffuse and source.outputs.get('Diffuse Color') is not None:
+            target = effect.inputs['Albedo']
+            output = source.outputs['Diffuse Color']
+            if not target.is_linked or target.links[0].from_socket != output:
+                tree.links.new(output, target)
     finally:
         _busy = False
 
@@ -129,7 +147,8 @@ def sync_scene(scene):
 def cleanup_unused():
     """Remove owned shader nodes and empty-slot substitutes after the last use."""
     from .compositor import effect_node
-    if any(effect_node(scene) and needs_mask(scene) for scene in bpy.data.scenes):
+    if any(effect_node(scene) and (needs_mask(scene) or scene.ascii_render.match_mode == 'SMART'
+                                 or scene.ascii_render.color_source == 'DIFFUSE') for scene in bpy.data.scenes):
         return
     for material in bpy.data.materials:
         if material.library or not material.node_tree:
@@ -152,12 +171,16 @@ def cleanup_unused():
                 slot.material = None
     for scene in bpy.data.scenes:
         for layer in scene.view_layers:
+            if scene.get(DIFFUSE_LAYERS, {}).get(layer.name):
+                layer.use_pass_diffuse_color = False
             if scene.get(AOV_LAYERS, {}).get(layer.name):
                 entry = next((a for a in layer.aovs if a.name == AOV_NAME), None)
                 if entry:
                     layer.aovs.remove(entry)
         if AOV_LAYERS in scene:
             del scene[AOV_LAYERS]
+        if DIFFUSE_LAYERS in scene:
+            del scene[DIFFUSE_LAYERS]
     for material in list(bpy.data.materials):
         if material.get(OWNED) == 'default' and material.users == 0:
             bpy.data.materials.remove(material)
@@ -192,7 +215,7 @@ def depsgraph_update(scene, depsgraph):
     if _busy or bpy.app.background or not hasattr(scene, 'ascii_render'):
         return
     from .compositor import effect_node
-    if not effect_node(scene) or not needs_mask(scene):
+    if not effect_node(scene) or not (needs_mask(scene) or scene.ascii_render.match_mode == 'SMART'):
         return
     if any(isinstance(update.id, (bpy.types.Object, bpy.types.Material,
                                  bpy.types.Mesh, bpy.types.Collection)) for update in depsgraph.updates):

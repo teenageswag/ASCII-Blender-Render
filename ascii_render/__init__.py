@@ -3,7 +3,7 @@
 bl_info = {
     'name': 'ASCII Render',
     'author': 'ASCII Render contributors',
-    'version': (1, 1, 1),
+    'version': (1, 2, 0),
     'blender': (5, 2, 0),
     'location': 'Render Properties > ASCII Render; 3D View > Sidebar > ASCII',
     'description': 'Live ASCII compositing, still renders and animation',
@@ -21,7 +21,7 @@ if 'coverage' in locals():
             and bpy.app.timers.is_registered(_initialize_scenes)):
         bpy.app.timers.unregister(_initialize_scenes)
     coverage.unregister_handlers()
-    for _name in ('glyphs', 'compositor', 'coverage', 'properties', 'operators', 'ui'):
+    for _name in ('glyphs', 'smart', 'compositor', 'coverage', 'properties', 'operators', 'ui'):
         importlib.reload(importlib.import_module(f'.{_name}', __name__))
 
 from . import compositor, coverage, operators, properties, ui

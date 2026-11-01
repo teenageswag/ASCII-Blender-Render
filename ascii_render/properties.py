@@ -29,6 +29,30 @@ def object_ascii_set(obj, value):
 class ASCII_RenderSettings(bpy.types.PropertyGroup):
     enabled: BoolProperty(name='Enable ASCII', default=True,
         description='Apply ASCII to the scene compositor output')
+    match_mode: EnumProperty(name='Matching', default='CLASSIC',
+        items=[('CLASSIC', 'Classic', 'Original brightness ramp and contour selection', 0),
+               ('SMART', 'Smart', 'Six subcell samples, local tone and 2x3 ink-shape matching', 1)],
+        update=_refresh_mask)
+    adaptive_strength: FloatProperty(name='Local Adaptation', default=0.55, min=0, max=1,
+        subtype='FACTOR', description='Blend global tone with mask-aware local contrast; high values can increase flicker')
+    adaptive_floor: FloatProperty(name='Noise Floor', default=0.12, min=0.02, max=0.5,
+        description='Minimum perceptual local range; larger values suppress noise on flat surfaces')
+    shape_strength: FloatProperty(name='Shape Matching', default=0.5, min=0, max=1,
+        subtype='FACTOR', description='Compare six ink-coverage features for five candidates ordered by ink density')
+    min_scale: FloatProperty(name='Minimum Scale', default=0.65, min=0.25, max=1,
+        description='Smallest Smart glyph relative to its cell; effective limits are sorted automatically')
+    max_scale: FloatProperty(name='Maximum Scale', default=1, min=0.25, max=1,
+        description='Largest Smart glyph; always clipped to its cell')
+    scale_strength: FloatProperty(name='Scale Variation', default=0.6, min=0, max=1,
+        subtype='FACTOR', description='Vary Smart glyph size with cell tone and edge importance')
+    color_source: EnumProperty(name='Color Source', default='COMBINED', options=set(),
+        items=[('COMBINED', 'Combined', 'Shaded scene color including emission'),
+               ('DIFFUSE', 'Diffuse Color', 'Unlit diffuse color; falls back to Combined in Cycles viewport; excludes emission')],
+        update=_refresh_mask)
+    saturation: FloatProperty(name='Saturation', default=1, min=0, max=2,
+        description='Saturation of Smart scene-colored glyphs')
+    min_contrast: FloatProperty(name='Minimum Contrast', default=0.18, min=0, max=0.5,
+        description='Minimum linear-luminance gap between opaque Smart ink and Background at full Strength; transparency uses this reference color')
     columns: IntProperty(name='Columns', default=120, min=8, max=600, soft_max=240,
         description='Number of characters across the image; more columns means smaller characters')
     cell_aspect: FloatProperty(name='Cell Aspect', default=1.5, min=0.5, max=3.0,
