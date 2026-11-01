@@ -1,136 +1,88 @@
 # ASCII Render
 
-Аддон для **Blender 5.2 LTS**, разработан и проверен в **5.2.3 LTS** на Windows.
-Преобразует изображение сцены в ASCII через штатные ноды композитора.
-Работает с предпросмотром в Rendered, одиночными кадрами и обычным рендером анимации.
-Для работы не нужны pip, интернет, сторонние библиотеки или отдельный движок рендера.
+ASCII rendering for Blender, with live preview and animation. Apply it to the whole frame or mix ASCII objects with ordinary shaded objects.
 
-## Установка
+**Blender 5.2 LTS** · **EEVEE & Cycles** · **GPL-3.0**
 
-1. Возьми файл **dist/ascii_render-1.1.0.zip**. **Не распаковывай его.**
-2. В Blender открой **Edit → Preferences → Add-ons**.
-3. В меню **▼** справа сверху выбери **Install from Disk…**, укажи ZIP и подтверди установку.
-4. Если аддон не включился автоматически, включи **ASCII Render**.
+[Download 1.1.0](releases/ascii_render-1.1.0.zip?raw=1) · [Example scene](examples/selective.blend?raw=1) · [Русская инструкция](docs/README.ru.md)
 
-## Первый запуск
+![An ASCII cube next to a normally shaded cylinder on a dark background](docs/images/hero.png)
 
-1. Открой свою сцену с камерой.
-2. Открой **Render Properties → ASCII Render** или боковую панель 3D-вида:
-   **N → ASCII**.
-3. Нажми **Add ASCII Render**. Аддон добавит эффект к выходу композитора,
-   включит Rendered и покажет результат через камеру.
-4. Выбери пресет **Terminal**, **Paper**, **Color** или **Coarse**.
-5. Настрой символы, цвет и контуры. Изменения видны во вьюпорте.
-6. **F12** — обычный рендер кадра, **Ctrl+F12** — рендер анимации.
-   Файлы сохраняются в папку и формате, заданных в Output Properties.
+*The cube uses ASCII; the cylinder keeps its original shading.*
 
-**Live Preview** включает показ композитора в открытых 3D-видах текущей сцены.
-**Preview Area → Camera / Whole Viewport** выбирает область; после смены нажми
-Live Preview ещё раз. Для Camera нужна камера в сцене.
-**Hide Preview** скрывает обработку во вьюпорте, сохраняя ASCII в финальном рендере.
+## Install
 
-## Настройки
+1. Download **ascii_render-1.1.0.zip** using the link above. Keep it zipped.
+2. In Blender, open **Edit → Preferences → Add-ons → ▼ → Install from Disk…**.
+3. Select the ZIP and enable **ASCII Render**.
+4. Open **N → ASCII** in the 3D Viewport and click **Add ASCII Render**.
 
-| Настройка | Что меняет |
+The panel also lives in **Render Properties → ASCII Render**.
+**F12** renders a frame; **Ctrl+F12** renders an animation using your usual output settings.
+
+## Choose what becomes ASCII
+
+Select an object and uncheck **Use ASCII on Active Object**. For several objects, use **Exclude Selected** or **Include Selected**. The same toggle is available in **Object Properties → ASCII Render → Use ASCII**.
+
+The **World** setting controls the background:
+
+| Mode | Result |
 | --- | --- |
-| Enable ASCII | Включает эффект; выключение возвращает исходное изображение |
-| Columns | Количество символов по ширине: больше — символы мельче |
-| Cell Aspect | Отношение высоты ячейки к ширине |
-| Glyph Scale | Размер знака внутри ячейки |
-| Character Set | Classic, Detailed, Minimal, Dots & Circles или Custom |
-| Characters | Собственная строка печатных ASCII-символов, максимум 128 |
-| Sort by Ink Density | Сортирует символы по площади закрашенных пикселей |
-| Color Mode | Monochrome — один цвет; Scene Colors — цвета сцены |
-| Foreground / Background | Цвет знаков / цвет подложки |
-| Color Brightness | Усиление яркости цветных символов |
-| Density Exposure | Экспозиция для выбора плотности знаков, в ступенях |
-| Contrast / Gamma | Контраст и полутона для выбора знаков |
-| Invert Density | Меняет местами плотные и редкие знаки |
-| Contours | Включает направление линий: дефис, вертикаль и две диагонали |
-| Edge Threshold | Порог контуров: меньше — больше линий |
-| Transparent Background | Прозрачность между символами вместо сплошной подложки |
-| Strength | Смешивание с исходным изображением |
+| ASCII | Convert the background along with the objects |
+| Original | Keep the world texture or existing compositor background |
+| Solid Color | Replace the world with the chosen background color |
+| Transparent | Remove the world; keep both ASCII and shaded objects |
 
-Custom поддерживает символы ASCII с кодами **32–126**, включая пробел.
-Кириллица, emoji и управляющие знаки пропускаются; если поддерживаемых знаков
-не осталось, используется Classic. Чтобы тёмные места были пустыми, включи
-пробел в набор. При выключенной сортировке строка задаёт порядок от тёмного к светлому.
-Шрифт встроенный, пиксельный 5×7; загрузка внешних TTF в эту версию не входит.
+If your backdrop is a plane, exclude that plane as an object.
+To export transparency, use PNG RGBA or OpenEXR.
 
-Числовые параметры, цвета и переключатели эффекта можно анимировать:
-наведи курсор на поле и нажми **I**, либо используй контекстное меню Insert Keyframe.
-Выбор набора, строка символов и сортировка общие для всей анимации.
+| Original world texture | Transparent world |
+| :---: | :---: |
+| ![ASCII cube and shaded cylinder over the original world texture](docs/images/original-world.png) | ![The same objects with the world removed](docs/images/transparent-world.png) |
 
-## Как устроен эффект
+## Controls
 
-Композитор вычисляет сетку из Columns и пропорций входного изображения,
-усредняет цвет внутри каждой ячейки и выбирает знак по яркости. Для контуров
-сравнивается яркость соседних точек; направление градиента выбирает один из
-четырёх линейных символов. Это контуры изображения: они реагируют также
-на тени и текстуры.
+| Monochrome | Scene colors |
+| :---: | :---: |
+| ![Monochrome Suzanne and torus in ASCII](docs/images/monochrome.png) | ![Color ASCII preserving the jade and coral materials](docs/images/color.png) |
 
-Глифы записываются в небольшую текстуру, автоматически упакованную в **.blend**.
-Ноды работают в CPU- и GPU-композиторах. Параметры связаны со сценой
-штатными драйверами Blender, поэтому анимация не зависит от Python-обработчиков кадров.
-Обработка не создаёт текстовые 3D-объекты.
+- **Characters:** grid density, cell proportions, glyph size, four built-in ramps, or your own printable ASCII characters.
+- **Tone:** density exposure, contrast, gamma and inversion.
+- **Color:** foreground, background and scene-color brightness.
+- **Contours:** directional line characters with an adjustable threshold, or switch them off.
+- **Strength:** blend ASCII with the original image.
 
-Add ASCII Render подключает эффект **перед активным Group Output** существующего
-композитора. Viewer, подключённый к тому же изображению, переключается на ASCII.
-Существующие File Output остаются со своими подключениями; при необходимости
-подключи к ним выход группы ASCII Render вручную.
-**Remove ASCII Effect** удаляет группу и восстанавливает исходное подключение.
+Start with **Terminal**, **Paper**, **Color** or **Coarse**. Presets keep your object exclusions and world mode.
+Hover a numeric setting or color and press **I** to insert a keyframe.
 
-## Практические замечания
+## Renderer support
 
-Выборочная обработка: выдели объект и выключи **Use ASCII on Active Object**,
-либо используй **Include Selected / Exclude Selected**. В Object Properties
-также есть переключатель **ASCII Render → Use ASCII**.
-**World** выбирает ASCII, исходный фон (Original), сплошной цвет (Solid Color)
-или прозрачность (Transparent). Текстуру на отдельной плоскости можно сохранить,
-исключив саму плоскость.
+Tested in **Blender 5.2.3 LTS on Windows**.
 
-Выборочные маски доступны в живом предпросмотре **EEVEE** и финальном рендере
-**EEVEE / Cycles**. В Cycles-вьюпорте показывается ASCII всей сцены; маски
-проверяй через F12.
+| Renderer | Full-frame live preview | Object/world masks in live preview | Still & animation renders |
+| --- | :---: | :---: | :---: |
+| EEVEE | Yes | Yes | Yes |
+| Cycles | Yes | No | Yes |
 
-- Предпросмотр требует режима **Rendered** и включённого композитора.
-  Скорость зависит от движка сцены, разрешения и видеокарты; EEVEE обычно удобнее для интерактивной настройки.
-- Для финального рендера должен быть включён **Use Compositing**.
-- Сетка зависит от размеров входного изображения. При одинаковых пропорциях
-  плотность символов во вьюпорте и финальном рендере совпадает; при разном
-  разрешении возможна разница в сглаживании.
-- Крупная сетка неизбежно теряет мелкие детали. Увеличь Columns, если объект плохо читается.
-- Усреднение смягчает смену символов, но не устраняет её полностью:
-  при пересечении порогов яркости знаки в анимации меняются.
-- Density Exposure, Contrast и Gamma управляют выбором знаков в линейном
-  композиторе с приближённой поправкой яркости. View Transform сцены не изменяется.
-  Для прямого терминального вида удобно выбрать Standard вручную.
-- Прозрачный результат сохраняй в формате с альфа-каналом, например PNG RGBA
-  или OpenEXR. Обычный H.264 прозрачность не сохраняет.
-- Выход — изображения или видео через Blender. Экспорт в TXT/ANSI не предусмотрен.
-- Аддон должен быть включён при открытии проектов, использующих его настройки.
-  При явном отключении аддона текущие значения сохраняются в нодах без драйверов.
+Blender exposes the required viewport render passes in EEVEE. In Cycles, use **F12** to check object exclusions and world masks. The full-frame ASCII effect still has a live preview. See [Blender's viewport pass support](https://docs.blender.org/manual/en/latest/compositing/types/input/scene/render_layers.html).
 
-## Разработка и проверка
+The add-on runs entirely in Blender using native compositor nodes and a packed bitmap font atlas. No extra Python packages are needed.
 
-Сборка ZIP (обычный Python):
+Masking requires editable surface materials. It follows visible surfaces; reflections, transmitted images and volumes are not separate mask targets. If an existing compositor moves or distorts the image, apply the same transformation to the mask.
 
-~~~text
+## Build & test
+
+~~~sh
 python tools/build.py
-~~~
-
-Проверки (путь к Blender подставь свой):
-
-~~~text
 blender --background --factory-startup --python-exit-code 1 --python tests/render_smoke.py
-blender --background --factory-startup --python-exit-code 1 --python tests/gpu_smoke.py
-blender --background --factory-startup --python-exit-code 1 --python tests/lifecycle.py
 blender --background --factory-startup --python-exit-code 1 --python tests/selective_render.py
-blender --background --factory-startup --command extension validate dist/ascii_render-1.1.0.zip
+blender --background --factory-startup --python-exit-code 1 --python tests/lifecycle.py
 ~~~
 
-Рендеры, трёхкадровая анимация и демосцена сохраняются в **build/verification**.
-Исходная идея — [статья Baeac](https://baeac.xyz/articles/ascii-art.html).
-Реализация и встроенные глифы написаны для этого проекта.
+The ZIP is written to **dist/**. Test renders are written to **build/**.
+See [development notes](docs/development.md) for GPU checks and the example scene.
 
-Лицензия: GPL-3.0-or-later, полный текст — **ascii_render/LICENSE**.
+## License & credits
+
+[GPL-3.0-or-later](LICENSE). Inspired by [Baeac's ASCII art article](https://baeac.xyz/articles/ascii-art.html).
+Examples rendered in Blender 5.2.3 LTS using this add-on.
