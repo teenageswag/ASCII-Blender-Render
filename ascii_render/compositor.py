@@ -252,7 +252,9 @@ def bind_controls(node, scene):
 def freeze_controls(node):
     """Keep the native effect usable when this extension is disabled."""
     for name, socket_type, _, _ in CONTROLS:
-        socket = node.inputs[name]
+        socket = node.inputs.get(name)
+        if socket is None:
+            continue  # Older saved node groups may not have the newer controls.
         value = tuple(socket.default_value) if socket_type == 'NodeSocketColor' else socket.default_value
         socket.driver_remove('default_value')
         socket.default_value = value

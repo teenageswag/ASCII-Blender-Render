@@ -1,6 +1,6 @@
 # ASCII Render
 
-[English](../README.md) · [Скачать 1.1.0](../releases/ascii_render-1.1.0.zip?raw=1) · [Демосцена](../examples/selective.blend?raw=1)
+[English](../README.md) · [Скачать 1.1.1](../releases/ascii_render-1.1.1.zip?raw=1) · [Демосцена](../examples/selective.blend?raw=1)
 
 ![Куб в ASCII и цилиндр с обычным шейдингом](images/hero.png)
 
@@ -11,10 +11,12 @@
 
 ## Установка
 
-1. Возьми файл **dist/ascii_render-1.1.0.zip**. **Не распаковывай его.**
+1. Возьми файл **dist/ascii_render-1.1.1.zip**. **Не распаковывай его.**
 2. В Blender открой **Edit → Preferences → Add-ons**.
 3. В меню **▼** справа сверху выбери **Install from Disk…**, укажи ZIP и подтверди установку.
 4. Если аддон не включился автоматически, включи **ASCII Render**.
+
+Версия **1.1.1** исправляет ошибку “already registered” и неполное включение аддона.
 
 ## Первый запуск
 
@@ -130,7 +132,7 @@ blender --background --factory-startup --python-exit-code 1 --python tests/rende
 blender --background --factory-startup --python-exit-code 1 --python tests/gpu_smoke.py
 blender --background --factory-startup --python-exit-code 1 --python tests/lifecycle.py
 blender --background --factory-startup --python-exit-code 1 --python tests/selective_render.py
-blender --background --factory-startup --command extension validate dist/ascii_render-1.1.0.zip
+blender --background --factory-startup --command extension validate dist/ascii_render-1.1.1.zip
 ~~~
 
 Рендеры, трёхкадровая анимация и демосцена сохраняются в **build/verification**.

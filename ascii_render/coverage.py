@@ -1,6 +1,7 @@
 """Object and world masks from one shader AOV, without material duplication."""
 
 import bpy
+import sys
 from bpy.app.handlers import persistent
 
 AOV_NAME = 'ASCII_RenderMask'
@@ -208,12 +209,27 @@ def register_handlers():
             collection.append(callback)
 
 
-def unregister_handlers():
-    if bpy.app.timers.is_registered(_flush):
-        bpy.app.timers.unregister(_flush)
-    _pending.clear()
-    for collection, callback in ((bpy.app.handlers.load_post, load_post),
-                                 (bpy.app.handlers.render_pre, render_pre),
-                                 (bpy.app.handlers.depsgraph_update_post, depsgraph_update)):
-        if callback in collection:
-            collection.remove(callback)
+def unregister_handlers(*, all_copies=False):
+    def owned(module):
+        return (module == __name__ or all_copies and
+                (module == 'ascii_render.coverage' or module.endswith('.ascii_render.coverage')))
+
+    modules = [module for name, module in tuple(sys.modules.items())
+               if owned(name) and module is not None]
+    callbacks = []
+    for collection in (bpy.app.handlers.load_post, bpy.app.handlers.render_pre,
+                       bpy.app.handlers.depsgraph_update_post):
+        for callback in list(collection):
+            if (owned(getattr(callback, '__module__', ''))
+                    and getattr(callback, '__name__', '') in {'load_post', 'render_pre', 'depsgraph_update'}):
+                callbacks.append(callback)
+                collection.remove(callback)
+    flushes = {getattr(module, '_flush', None) for module in modules}
+    flushes.update(getattr(callback, '__globals__', {}).get('_flush') for callback in callbacks)
+    for flush in flushes:
+        if flush is not None and bpy.app.timers.is_registered(flush):
+            bpy.app.timers.unregister(flush)
+    for module in modules:
+        pending = getattr(module, '_pending', None)
+        if pending is not None:
+            pending.clear()

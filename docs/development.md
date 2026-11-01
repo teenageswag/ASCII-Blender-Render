@@ -13,7 +13,7 @@ The copy in **releases/** is the downloadable package committed with this releas
 Validate the archive with Blender:
 
 ~~~sh
-blender --background --factory-startup --command extension validate dist/ascii_render-1.1.0.zip
+blender --background --factory-startup --command extension validate dist/ascii_render-1.1.1.zip
 ~~~
 
 ## Checks
@@ -26,6 +26,8 @@ blender --background --factory-startup --python-exit-code 1 --python tests/selec
 blender --background --factory-startup --python-exit-code 1 --python tests/lifecycle.py
 blender --background --factory-startup --python-exit-code 1 --python tests/gpu_smoke.py
 blender --background --factory-startup --python-exit-code 1 --python tests/migration.py
+blender --background --factory-startup --python-exit-code 1 --python tests/registration.py
+blender --background --factory-startup --python-exit-code 1 --python tests/upgrade_registration.py
 ~~~
 
 - **render_smoke:** ordinary renders, color, contours, custom characters, transparency and a three-frame animation.
@@ -33,6 +35,8 @@ blender --background --factory-startup --python-exit-code 1 --python tests/migra
 - **lifecycle:** existing compositor connections, drivers, presets, shared node trees and extension re-registration.
 - **gpu_smoke:** GPU compositing and reloading the demo produced by render_smoke.
 - **migration:** compositor upgrade and preservation of the source connection in a saved demo. To check a 1.0 project, place that project at build/verification/ascii_demo.blend before running it.
+- **registration:** repeated/partial registration, rollback on failure, namespace collisions, Preferences enable/disable and deferred scene initialization.
+- **upgrade_registration:** upgrade the actual 1.1.0 archive to the current code without restarting Blender or clearing Python's module cache.
 
 ## Selective rendering
 

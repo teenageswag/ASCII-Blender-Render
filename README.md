@@ -4,7 +4,7 @@ ASCII rendering for Blender, with live preview and animation. Apply it to the wh
 
 **Blender 5.2 LTS** · **EEVEE & Cycles** · **GPL-3.0**
 
-[Download 1.1.0](releases/ascii_render-1.1.0.zip?raw=1) · [Example scene](examples/selective.blend?raw=1) · [Русская инструкция](docs/README.ru.md)
+[Download 1.1.1](releases/ascii_render-1.1.1.zip?raw=1) · [Example scene](examples/selective.blend?raw=1) · [Русская инструкция](docs/README.ru.md)
 
 ![An ASCII cube next to a normally shaded cylinder on a dark background](docs/images/hero.png)
 
@@ -12,13 +12,15 @@ ASCII rendering for Blender, with live preview and animation. Apply it to the wh
 
 ## Install
 
-1. Download **ascii_render-1.1.0.zip** using the link above. Keep it zipped.
+1. Download **ascii_render-1.1.1.zip** using the link above. Keep it zipped.
 2. In Blender, open **Edit → Preferences → Add-ons → ▼ → Install from Disk…**.
 3. Select the ZIP and enable **ASCII Render**.
 4. Open **N → ASCII** in the 3D Viewport and click **Add ASCII Render**.
 
 The panel also lives in **Render Properties → ASCII Render**.
 **F12** renders a frame; **Ctrl+F12** renders an animation using your usual output settings.
+
+Version **1.1.1** fixes failed enables and the “already registered” error when reinstalling or reloading the add-on.
 
 ## Choose what becomes ASCII
 
