@@ -7,7 +7,7 @@
 
 ## Установка
 
-1. Возьми файл **dist/ascii_render-1.0.0.zip**. **Не распаковывай его.**
+1. Возьми файл **dist/ascii_render-1.1.0.zip**. **Не распаковывай его.**
 2. В Blender открой **Edit → Preferences → Add-ons**.
 3. В меню **▼** справа сверху выбери **Install from Disk…**, укажи ZIP и подтверди установку.
 4. Если аддон не включился автоматически, включи **ASCII Render**.
@@ -82,6 +82,17 @@ Add ASCII Render подключает эффект **перед активным
 
 ## Практические замечания
 
+Выборочная обработка: выдели объект и выключи **Use ASCII on Active Object**,
+либо используй **Include Selected / Exclude Selected**. В Object Properties
+также есть переключатель **ASCII Render → Use ASCII**.
+**World** выбирает ASCII, исходный фон (Original), сплошной цвет (Solid Color)
+или прозрачность (Transparent). Текстуру на отдельной плоскости можно сохранить,
+исключив саму плоскость.
+
+Выборочные маски доступны в живом предпросмотре **EEVEE** и финальном рендере
+**EEVEE / Cycles**. В Cycles-вьюпорте показывается ASCII всей сцены; маски
+проверяй через F12.
+
 - Предпросмотр требует режима **Rendered** и включённого композитора.
   Скорость зависит от движка сцены, разрешения и видеокарты; EEVEE обычно удобнее для интерактивной настройки.
 - Для финального рендера должен быть включён **Use Compositing**.
@@ -114,7 +125,8 @@ python tools/build.py
 blender --background --factory-startup --python-exit-code 1 --python tests/render_smoke.py
 blender --background --factory-startup --python-exit-code 1 --python tests/gpu_smoke.py
 blender --background --factory-startup --python-exit-code 1 --python tests/lifecycle.py
-blender --background --factory-startup --command extension validate dist/ascii_render-1.0.0.zip
+blender --background --factory-startup --python-exit-code 1 --python tests/selective_render.py
+blender --background --factory-startup --command extension validate dist/ascii_render-1.1.0.zip
 ~~~
 
 Рендеры, трёхкадровая анимация и демосцена сохраняются в **build/verification**.

@@ -5,7 +5,7 @@ import bpy
 from .glyphs import atlas_for, character_ramp
 
 OWNER = 'ascii_render_owned'
-SCHEMA = 1
+SCHEMA = 2
 
 # All changing numbers are group inputs driven from the owning Scene. This keeps
 # animation in Blender's dependency graph; there are no per-frame Python hooks.
@@ -26,6 +26,7 @@ CONTROLS = (
     ('Transparent', 'NodeSocketFloat', 'transparent_background', 'value'),
     ('Strength', 'NodeSocketFloat', 'strength', 'value'),
     ('Enabled', 'NodeSocketFloat', 'enabled', 'value'),
+    ('World Mode', 'NodeSocketFloat', 'world_mode', 'value'),
 )
 
 
@@ -99,6 +100,8 @@ def build_effect(settings):
     tree.interface.new_socket(name='Image', in_out='INPUT', socket_type='NodeSocketColor')
     for name, socket_type, _, _ in CONTROLS:
         tree.interface.new_socket(name=name, in_out='INPUT', socket_type=socket_type)
+    tree.interface.new_socket(name='Object Mask', in_out='INPUT', socket_type='NodeSocketColor')
+    tree.interface.new_socket(name='Use Object Mask', in_out='INPUT', socket_type='NodeSocketFloat')
     tree.interface.new_socket(name='Image', in_out='OUTPUT', socket_type='NodeSocketColor')
     g = Graph(tree)
     inputs = g.node('NodeGroupInput', 'Settings').outputs
@@ -184,7 +187,31 @@ def build_effect(settings):
     alpha.inputs['Type'].default_value = 'Replace Alpha'
     g.put(alpha.inputs['Image'], art)
     g.put(alpha.inputs['Alpha'], g.mix(inputs['Transparent'], 1, mask))
-    result = g.mix(g.math('MULTIPLY', inputs['Strength'], inputs['Enabled']), original, alpha.outputs[0], color=True, label='Effect strength')
+    art = alpha.outputs[0]
+    channels = g.node('CompositorNodeSeparateColor', 'Object and world coverage')
+    g.put(channels.inputs[0], inputs['Object Mask'])
+    excluded = g.math('MULTIPLY', channels.outputs['Red'], 1, clamp=True)
+    surface = g.math('MULTIPLY', channels.outputs['Green'], 1, clamp=True)
+    world_ascii = g.math('COMPARE', inputs['World Mode'], 0)
+    world_solid = g.math('COMPARE', inputs['World Mode'], 2)
+    world_transparent = g.math('COMPARE', inputs['World Mode'], 3)
+    world_replaced = g.math('ADD', world_solid, world_transparent)
+    world_color = g.mix(world_transparent, inputs['Background'], (0, 0, 0, 0),
+                       color=True, label='World replacement')
+    world_base = g.mix(surface, world_color, original, color=True, label='Preserve native surfaces')
+    base = g.mix(world_replaced, original, world_base, color=True, label='Original or replaced world')
+    coverage = g.mix(world_ascii, surface, 1, label='Include world in ASCII')
+    coverage = g.math('SUBTRACT', coverage, excluded, clamp=True)
+    selective = g.mix(coverage, base, art, color=True, label='Object and world selection')
+    # An unavailable Cycles viewport pass is a constant, not an image. Keep the
+    # full-image ASCII preview in that case; EEVEE supplies the actual AOV.
+    mask_info = g.node('CompositorNodeImageInfo', 'Mask image availability')
+    g.put(mask_info.inputs[0], inputs['Object Mask'])
+    mask_dimensions = g.separate(mask_info.outputs['Dimensions'], 'Mask dimensions')
+    available = g.math('GREATER_THAN', mask_dimensions[0], 1)
+    selected_art = g.mix(g.math('MULTIPLY', inputs['Use Object Mask'], available),
+                         art, selective, color=True, label='Selective or full-frame ASCII')
+    result = g.mix(g.math('MULTIPLY', inputs['Strength'], inputs['Enabled']), original, selected_art, color=True, label='Effect strength')
     output = g.node('NodeGroupOutput', 'ASCII output')
     g.put(output.inputs['Image'], result)
     return tree
@@ -201,8 +228,9 @@ def bind_controls(node, scene):
     for name, socket_type, prop, expression in CONTROLS:
         socket = node.inputs[name]
         value = getattr(scene.ascii_render, prop)
-        if prop == 'color_mode':
-            value = int(value == 'COLOR')
+        if prop in {'color_mode', 'world_mode'}:
+            value = next(item.value for item in scene.ascii_render.bl_rna.properties[prop].enum_items
+                         if item.identifier == value)
         socket.default_value = value
         components = range(4) if socket_type == 'NodeSocketColor' else (None,)
         for component in components:
@@ -230,9 +258,23 @@ def freeze_controls(node):
         socket.default_value = value
 
 
+def upgrade(scene):
+    node = effect_node(scene)
+    if node is None or node.node_tree.get('ascii_schema', 0) >= SCHEMA:
+        return
+    old = node.node_tree
+    node.node_tree = build_effect(scene.ascii_render)
+    bind_controls(node, scene)
+    if old.users == 0:
+        bpy.data.node_groups.remove(old)
+
+
 def install(scene):
     existing = effect_node(scene)
     if existing:
+        upgrade(scene)
+        from .coverage import sync_scene
+        sync_scene(scene)
         return existing
     tree = scene.compositing_node_group
     if tree is None:
@@ -283,6 +325,8 @@ def install(scene):
         bpy.data.node_groups.remove(effect)
         raise
     scene.render.use_compositing = True
+    from .coverage import sync_scene
+    sync_scene(scene)
     return node
 
 
@@ -315,6 +359,10 @@ def remove(scene):
     for name, socket_type, _, _ in CONTROLS:
         node.inputs[name].driver_remove('default_value')
     tree.nodes.remove(node)
+    from .coverage import OWNED, cleanup_unused
+    for helper in list(tree.nodes):
+        if helper.get(OWNED) == 'source':
+            tree.nodes.remove(helper)
     for socket in destinations:
         if source:
             tree.links.new(source, socket)
@@ -326,3 +374,4 @@ def remove(scene):
         for image in images:
             if image.users == 0 and image.get(OWNER):
                 bpy.data.images.remove(image)
+    cleanup_unused()

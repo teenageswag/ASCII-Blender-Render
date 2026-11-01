@@ -2,9 +2,11 @@
 
 from pathlib import Path
 import zipfile
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-target = ROOT / 'dist' / 'ascii_render-1.0.0.zip'
+manifest = tomllib.loads((ROOT / 'ascii_render/blender_manifest.toml').read_text(encoding='utf-8'))
+target = ROOT / 'dist' / f"ascii_render-{manifest['version']}.zip"
 target.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
     for path in sorted((ROOT / 'ascii_render').rglob('*')):

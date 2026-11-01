@@ -8,6 +8,24 @@ def _refresh_characters(self, context):
     compositor.refresh_atlas(self.id_data)
 
 
+def _refresh_mask(self, context):
+    from .coverage import sync_scene
+    sync_scene(self.id_data)
+
+
+def object_ascii_get(obj):
+    from .coverage import EXCLUDE_KEY
+    return not bool(obj.get(EXCLUDE_KEY, 0))
+
+
+def object_ascii_set(obj, value):
+    from .coverage import EXCLUDE_KEY, sync_scene
+    obj[EXCLUDE_KEY] = float(not value)
+    obj.update_tag()
+    for scene in obj.users_scene:
+        sync_scene(scene)
+
+
 class ASCII_RenderSettings(bpy.types.PropertyGroup):
     enabled: BoolProperty(name='Enable ASCII', default=True,
         description='Apply ASCII to the scene compositor output')
@@ -56,6 +74,15 @@ class ASCII_RenderSettings(bpy.types.PropertyGroup):
         description='Minimum brightness gradient for a contour; lower values show more edges')
     transparent_background: BoolProperty(name='Transparent Background', default=False,
         description='Output only glyphs over transparency instead of a solid background')
+    world_mode: EnumProperty(name='World Background', default='ASCII', options=set(),
+        items=[('ASCII', 'ASCII', 'Convert the world background to ASCII too', 0),
+               ('ORIGINAL', 'Original', 'Keep the original world or compositor background', 1),
+               ('SOLID', 'Solid Color', 'Replace the world with the ASCII background color', 2),
+               ('TRANSPARENT', 'Transparent', 'Remove the world background', 3)],
+        update=_refresh_mask)
+    mask_view_layer: StringProperty(name='Mask View Layer', default='', options=set(),
+        description='View layer supplying object and world coverage; empty selects the main Render Layers source',
+        update=_refresh_mask)
     strength: FloatProperty(name='Strength', default=1, min=0, max=1, subtype='FACTOR',
         description='Mix the original image with ASCII')
     preview_mode: EnumProperty(name='Preview Area', default='CAMERA', options=set(),

@@ -30,6 +30,23 @@ def draw_panel(layout, context):
     body = layout.column()
     body.active = settings.enabled
     box = body.box()
+    box.label(text='Objects & World', icon='OBJECT_DATA')
+    if context.object:
+        row = box.row()
+        row.enabled = context.object.is_editable
+        row.use_property_split = False
+        row.prop(context.object, 'ascii_render_enabled', text='Use ASCII on Active Object')
+    row = box.row(align=True)
+    row.operator('ascii_render.selected', text='Include Selected').enabled = True
+    row.operator('ascii_render.selected', text='Exclude Selected').enabled = False
+    box.prop(settings, 'world_mode', text='World')
+    from .coverage import needs_mask
+    if needs_mask(scene):
+        box.prop_search(settings, 'mask_view_layer', scene, 'view_layers', text='Mask Layer')
+        if scene.render.engine == 'CYCLES':
+            box.label(text='Object/world masks: F12 in Cycles.', icon='INFO')
+            box.label(text='Use EEVEE for selective live preview.')
+    box = body.box()
     box.label(text='Characters', icon='FONT_DATA')
     box.prop(settings, 'columns')
     box.prop(settings, 'cell_aspect')
@@ -94,3 +111,22 @@ class ASCII_PT_viewport(bpy.types.Panel):
 
 
 CLASSES = (ASCII_PT_render, ASCII_PT_viewport)
+
+
+class ASCII_PT_object(bpy.types.Panel):
+    bl_label = 'ASCII Render'
+    bl_idname = 'ASCII_PT_object'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'object'
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    def draw(self, context):
+        self.layout.enabled = context.object.is_editable
+        self.layout.prop(context.object, 'ascii_render_enabled')
+
+
+CLASSES += (ASCII_PT_object,)

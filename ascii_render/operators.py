@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import EnumProperty
+from bpy.props import BoolProperty, EnumProperty
 
 from . import compositor
 
@@ -116,4 +116,27 @@ class ASCII_OT_preset(bpy.types.Operator):
         return {'FINISHED'}
 
 
-CLASSES = (ASCII_OT_setup, ASCII_OT_remove, ASCII_OT_preview, ASCII_OT_stop_preview, ASCII_OT_preset)
+class ASCII_OT_selected(bpy.types.Operator):
+    bl_idname = 'ascii_render.selected'
+    bl_label = 'Set ASCII on Selected Objects'
+    bl_description = 'Choose whether selected objects use ASCII or their original rendered style'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    enabled: BoolProperty(default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return bool(context.selected_objects)
+
+    def execute(self, context):
+        count = 0
+        for obj in context.selected_objects:
+            if obj.is_editable:
+                obj.ascii_render_enabled = self.enabled
+                count += 1
+        self.report({'INFO'}, f'ASCII {"enabled" if self.enabled else "disabled"} for {count} object(s)')
+        return {'FINISHED'}
+
+
+CLASSES = (ASCII_OT_setup, ASCII_OT_remove, ASCII_OT_preview, ASCII_OT_stop_preview, ASCII_OT_preset,
+           ASCII_OT_selected)
