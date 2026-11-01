@@ -1,0 +1,10 @@
+schema_version = "1.0.0"
+id = "ascii_render"
+version = "1.0.0"
+name = "ASCII Render"
+tagline = "Turn renders and live previews into configurable ASCII art"
+maintainer = "ASCII Render contributors"
+type = "add-on"
+tags = ["Render", "Compositing"]
+blender_version_min = "5.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
