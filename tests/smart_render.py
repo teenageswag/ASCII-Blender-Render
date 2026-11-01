@@ -1,6 +1,5 @@
 """Low-density visual regression scene; --before records the 1.1.1 baseline."""
 from pathlib import Path
-import math
 import sys
 
 import bpy
@@ -92,6 +91,7 @@ else:
     out = ROOT / 'build/smart'
     out.mkdir(parents=True, exist_ok=True)
     classic = render(out / 'classic.png')
+    bpy.ops.wm.save_as_mainfile(filepath=str(out / 'benchmark.blend'))
     settings.match_mode = 'SMART'
     smart = render(images / 'smart-after.png')
     assert node.inputs['Match Mode'].default_value == 1
@@ -116,4 +116,23 @@ else:
     assert abs(node.inputs['Adaptive Strength'].default_value - 0.2) < 1e-5
     scene.frame_set(3)
     assert abs(node.inputs['Adaptive Strength'].default_value - 0.9) < 1e-5
+    settings.character_set = 'DETAILED'
+    settings.color_source = 'COMBINED'
+    # Real sequence, not just driver inspection: check finite, nonempty frames
+    # and bounded changes under a small rigid rotation (no temporal filter claim).
+    sequence = []
+    for frame in (1, 2, 3):
+        scene.frame_set(frame)
+        monkey.rotation_euler.z = -0.12 + (frame - 1) * 0.015
+        sequence.append(render(out / f'smart_frame_{frame:02}.png'))
+    changes = [np.abs(a - b).mean() for a, b in zip(sequence, sequence[1:])]
+    assert max(changes) < 0.1, changes
+    settings.match_mode = 'CLASSIC'
+    settings.keyframe_insert('match_mode', frame=1)
+    settings.match_mode = 'SMART'
+    settings.keyframe_insert('match_mode', frame=3)
+    scene.frame_set(1)
+    assert not node.inputs['Match Mode'].default_value
+    scene.frame_set(3)
+    assert node.inputs['Match Mode'].default_value
     print('ALL_SMART_RENDER_TESTS_PASSED', flush=True)

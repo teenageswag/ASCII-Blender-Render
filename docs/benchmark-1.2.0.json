@@ -1,0 +1,121 @@
+{
+  "date": "2026-11-02",
+  "before": {
+    "version": [
+      1,
+      1,
+      1
+    ],
+    "gpu": "NVIDIA GeForce RTX 3060/PCIe/SSE2",
+    "nodes": 141,
+    "frames": 30,
+    "measurements": {
+      "CLASSIC": {
+        "median_ms": 10.216249997029081,
+        "fps": 96.94290554174152,
+        "min_ms": 9.604000020772219,
+        "max_ms": 10.987799963913858
+      }
+    },
+    "region_pixels": [
+      1920,
+      1080
+    ]
+  },
+  "after": {
+    "version": [
+      1,
+      2,
+      0
+    ],
+    "gpu": "NVIDIA GeForce RTX 3060/PCIe/SSE2",
+    "nodes": 685,
+    "frames": 30,
+    "measurements": {
+      "CLASSIC": {
+        "median_ms": 11.02009997703135,
+        "fps": 90.37826922652411,
+        "min_ms": 9.969900012947619,
+        "max_ms": 12.101500004064292
+      },
+      "SMART": {
+        "median_ms": 36.587599985068664,
+        "fps": 26.86781224558462,
+        "min_ms": 33.03370001958683,
+        "max_ms": 41.786600020714104
+      }
+    },
+    "viewport_inputs": {
+      "BLENDER_EEVEE": {
+        "sockets": [
+          "Image",
+          "Alpha",
+          "Depth",
+          "Normal",
+          "Diffuse Color",
+          "ASCII_RenderMask"
+        ],
+        "approximate_dimensions": {
+          "Image": [
+            1919,
+            1076
+          ],
+          "Normal": [
+            1919,
+            1076
+          ],
+          "Depth": [
+            1919,
+            1076
+          ],
+          "Diffuse Color": [
+            1919,
+            1076
+          ],
+          "ASCII_RenderMask": [
+            1919,
+            1076
+          ]
+        }
+      },
+      "CYCLES": {
+        "sockets": [
+          "Image",
+          "Alpha",
+          "Depth",
+          "Normal",
+          "Object Index",
+          "Diffuse Color",
+          "Noisy Image",
+          "ASCII_RenderMask"
+        ],
+        "approximate_dimensions": {
+          "Image": [
+            1919,
+            1076
+          ],
+          "Normal": [
+            0,
+            0
+          ],
+          "Depth": [
+            0,
+            0
+          ],
+          "Diffuse Color": [
+            0,
+            0
+          ],
+          "ASCII_RenderMask": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "region_pixels": [
+      1920,
+      1080
+    ]
+  }
+}

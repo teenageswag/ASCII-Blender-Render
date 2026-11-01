@@ -13,7 +13,7 @@ The copy in **releases/** is the downloadable package committed with this releas
 Validate the archive with Blender:
 
 ~~~sh
-blender --background --factory-startup --command extension validate dist/ascii_render-1.1.1.zip
+blender --background --factory-startup --command extension validate dist/ascii_render-1.2.0.zip
 ~~~
 
 ## Checks
@@ -36,7 +36,7 @@ blender --background --factory-startup --python-exit-code 1 --python tests/upgra
 - **gpu_smoke:** GPU compositing and reloading the demo produced by render_smoke.
 - **migration:** compositor upgrade and preservation of the source connection in a saved demo. To check a 1.0 project, place that project at build/verification/ascii_demo.blend before running it.
 - **registration:** repeated/partial registration, rollback on failure, namespace collisions, Preferences enable/disable and deferred scene initialization.
-- **upgrade_registration:** upgrade the actual 1.1.0 archive to the current code without restarting Blender or clearing Python's module cache.
+- **upgrade_registration:** upgrade the shipped 1.1.1 archive to the current code without restarting Blender or clearing Python's module cache.
 
 ## Selective rendering
 
@@ -57,3 +57,47 @@ Remove ASCII Effect reconnects the original compositor output and removes owned 
 **tools/ui_selective_preview.py** opens an isolated EEVEE preview for visual checks.
 
 The example contains procedural materials and a packed glyph atlas; it has no external texture dependencies.
+
+## 1.2.0 verification
+
+See [validation-1.2.0.md](validation-1.2.0.md) for measured 1080p viewport timings,
+pass availability and the native input-size diagnostic.
+
+~~~sh
+blender --background --factory-startup --python-exit-code 1 --python tests/smart_render.py
+blender --background --factory-startup --python-exit-code 1 --python tests/smart_nodes.py
+blender --background --factory-startup --python-exit-code 1 --python tests/edge_render.py
+blender --background --factory-startup --python-exit-code 1 --python tests/viewport_preview.py
+~~~
+
+Smart stores six features per glyph in two packed data images, plus a 256-entry
+coverage-to-rank lookup. Repeated Custom characters are deduplicated only for Smart
+search. Image creation and density sorting run only on atlas changes. The graph
+compares five coverage-neighbor candidates, independent of ramp length/order.
+A boolean Group Input wired directly to modern Switch nodes allows Blender 5.2's
+[static lazy evaluation](https://projects.blender.org/blender/blender/commit/cdb3b4455ea0fa177d3b478a2d22ea539c63e5c1)
+to omit Smart analysis in Classic; a float condition or a Mix does not do that.
+
+Preview bookmarks live on Screen ID properties because SpaceView3D does not support
+custom ID properties. RNA paths survive serialization; live pointers track area
+reordering. Split geometry and copied Screen bookmarks preserve parent state.
+Per-space backups on the Scene survive deletion of temporary fullscreen Screens;
+these are removed along with Screen bookmarks when preview is restored.
+The watcher observes topology only, every 0.75 seconds while preview is active.
+No Python image processing or redraw/depsgraph preview handler is installed.
+
+To repeat the UI benchmark after smart_render creates build/smart/benchmark.blend:
+
+~~~sh
+blender --factory-startup --window-geometry 0 0 1920 1080 --python tools/benchmark_viewport.py -- --baseline
+blender --factory-startup --window-geometry 0 0 1920 1080 --python tools/benchmark_viewport.py
+~~~
+
+These commands launch isolated Blender instances and quit automatically. The
+baseline is staged from releases/ascii_render-1.1.1.zip. JSON results go to build/.
+The current-code run also draws the Render Properties panel and probes Image Info
+through a Raw-view diagnostic screenshot in the actual free viewport.
+
+`blender --factory-startup --python tests/viewport_ui.py` checks real main windows,
+independent scenes, workspaces and fullscreen transitions in an isolated UI session.
+It quits automatically; do not run it inside an existing user session.

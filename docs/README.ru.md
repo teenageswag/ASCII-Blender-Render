@@ -1,6 +1,6 @@
 # ASCII Render
 
-[English](../README.md) · [Скачать 1.1.1](../releases/ascii_render-1.1.1.zip?raw=1) · [Демосцена](../examples/selective.blend?raw=1)
+[English](../README.md) · [Скачать 1.2.0](../releases/ascii_render-1.2.0.zip?raw=1) · [Демосцена](../examples/selective.blend?raw=1)
 
 ![Куб в ASCII и цилиндр с обычным шейдингом](images/hero.png)
 
@@ -11,12 +11,12 @@
 
 ## Установка
 
-1. Возьми файл **dist/ascii_render-1.1.1.zip**. **Не распаковывай его.**
+1. Возьми файл **dist/ascii_render-1.2.0.zip**. **Не распаковывай его.**
 2. В Blender открой **Edit → Preferences → Add-ons**.
 3. В меню **▼** справа сверху выбери **Install from Disk…**, укажи ZIP и подтверди установку.
 4. Если аддон не включился автоматически, включи **ASCII Render**.
 
-Версия **1.1.1** исправляет ошибку “already registered” и неполное включение аддона.
+Версия **1.2.0** добавляет Smart, чистые силуэты и обратимый preview в свободном viewport. Повторное включение и reload по-прежнему поддерживаются.
 
 ## Первый запуск
 
@@ -24,16 +24,29 @@
 2. Открой **Render Properties → ASCII Render** или боковую панель 3D-вида:
    **N → ASCII**.
 3. Нажми **Add ASCII Render**. Аддон добавит эффект к выходу композитора,
-   включит Rendered и покажет результат через камеру.
+   включит Preview in Viewport. Выбери Rendered или Material Preview вручную.
 4. Выбери пресет **Terminal**, **Paper**, **Color** или **Coarse**.
 5. Настрой символы, цвет и контуры. Изменения видны во вьюпорте.
 6. **F12** — обычный рендер кадра, **Ctrl+F12** — рендер анимации.
    Файлы сохраняются в папку и формате, заданных в Output Properties.
 
-**Live Preview** включает показ композитора в открытых 3D-видах текущей сцены.
-**Preview Area → Camera / Whole Viewport** выбирает область; после смены нажми
-Live Preview ещё раз. Для Camera нужна камера в сцене.
-**Hide Preview** скрывает обработку во вьюпорте, сохраняя ASCII в финальном рендере.
+**Preview in Viewport** показывает композитор и в свободном виде: по умолчанию
+**Preview Area → Whole Viewport** соответствует Blender Always.
+Режим Camera показывает эффект только из камеры (Numpad 0).
+Shading и направление вида аддон не меняет; Solid не поддерживает композитор.
+При выключении preview, Enable ASCII, удалении эффекта или отключении аддона
+возвращается прежний use_compositor каждого затронутого space. Ручные изменения
+пользователя сохраняются. Bookmarks хранятся в Screen внутри .blend и переживают reload.
+Новые области и окна подхватываются через события и проверку топологии раз в 0.75 с;
+Python не обрабатывает redraw или кадры изображения.
+
+**Grid Size → Columns** сохраняет число колонок, а высота сетки вычисляется из
+пропорций входного изображения и Cell Aspect. Это ближайшее соответствие viewport
+и финального рендера, но свободный вид имеет другие пропорции и ракурс.
+**Cell Pixels** сохраняет ширину ячейки в пикселях входа композитора; при разных
+разрешениях viewport и F12 число колонок будет разным. Resolution scale / HiDPI
+могут менять входное разрешение: это не логические пиксели UI. Smart ограничивает
+ширину ячейки снизу 8 входными пикселями; Classic в Columns сохраняет старую сетку.
 
 ## Настройки
 
@@ -105,7 +118,7 @@ Combined сохраняет освещение и эмиссию. Без viewpor
 | :---: | :---: |
 | ![До](images/smart-before.png) | ![После](images/smart-after.png) |
 
-Композитор вычисляет сетку из Columns и пропорций входного изображения,
+В Classic композитор вычисляет сетку из Columns и пропорций входного изображения,
 усредняет цвет внутри каждой ячейки и выбирает знак по яркости. Для контуров
 сравнивается яркость соседних точек; направление градиента выбирает один из
 четырёх линейных символов. Это контуры изображения: они реагируют также
@@ -121,6 +134,13 @@ Add ASCII Render подключает эффект **перед активным
 Существующие File Output остаются со своими подключениями; при необходимости
 подключи к ним выход группы ASCII Render вручную.
 **Remove ASCII Effect** удаляет группу и восстанавливает исходное подключение.
+
+Material Preview использует EEVEE даже при выбранном Cycles для F12.
+В свободном EEVEE проверены Normal, Depth, Diffuse Color и shader AOV.
+В Cycles Rendered дополнительные пассы пустые; Object Index в EEVEE не выдаётся.
+Для отбора объектов используется AOV.
+
+Замеры 1080p и результаты проверок: [validation-1.2.0.md](validation-1.2.0.md).
 
 ## Практические замечания
 
@@ -168,7 +188,11 @@ blender --background --factory-startup --python-exit-code 1 --python tests/rende
 blender --background --factory-startup --python-exit-code 1 --python tests/gpu_smoke.py
 blender --background --factory-startup --python-exit-code 1 --python tests/lifecycle.py
 blender --background --factory-startup --python-exit-code 1 --python tests/selective_render.py
-blender --background --factory-startup --command extension validate dist/ascii_render-1.1.1.zip
+blender --background --factory-startup --python-exit-code 1 --python tests/smart_render.py
+blender --background --factory-startup --python-exit-code 1 --python tests/smart_nodes.py
+blender --background --factory-startup --python-exit-code 1 --python tests/edge_render.py
+blender --background --factory-startup --python-exit-code 1 --python tests/viewport_preview.py
+blender --background --factory-startup --command extension validate dist/ascii_render-1.2.0.zip
 ~~~
 
 Рендеры, трёхкадровая анимация и демосцена сохраняются в **build/verification**.

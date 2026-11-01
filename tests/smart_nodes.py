@@ -34,6 +34,14 @@ data = np.array(features.pixels[:]).reshape(-1, 4)
 assert np.all(np.diff(data[:, 3]) >= -1e-6), 'Smart order must use ink coverage'
 assert atlas['ascii_characters'].startswith('@ .'), 'Classic must retain custom order'
 assert all(i.packed_file for i in (atlas, descriptors, features, order))
+assert descriptors.size[0] == len(set(atlas['ascii_characters'])), 'Repeated glyphs must not crowd candidates'
+first_features = np.array(descriptors.pixels[:])
+first_extra = data[:, [0, 1, 3]].copy()
+settings.custom_characters = '-\\/|. @'
+atlas = node.node_tree.nodes['Glyph atlas'].image
+reordered, extra, _ = smart.descriptors_for(atlas)
+assert np.allclose(first_features, np.array(reordered.pixels[:]))
+assert np.allclose(first_extra, np.array(extra.pixels[:]).reshape(-1, 4)[:, [0, 1, 3]])
 
 # Isolate the actual native ink graph and measure its EXR output for dark,
 # middle and light backgrounds, including saturated colors and the extremes.

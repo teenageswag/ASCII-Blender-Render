@@ -21,10 +21,12 @@ if 'coverage' in locals():
             and bpy.app.timers.is_registered(_initialize_scenes)):
         bpy.app.timers.unregister(_initialize_scenes)
     coverage.unregister_handlers()
-    for _name in ('glyphs', 'smart', 'compositor', 'coverage', 'properties', 'operators', 'ui'):
+    if 'viewport' in locals():
+        viewport.unregister_handlers()
+    for _name in ('glyphs', 'smart', 'compositor', 'coverage', 'viewport', 'properties', 'operators', 'ui'):
         importlib.reload(importlib.import_module(f'.{_name}', __name__))
 
-from . import compositor, coverage, operators, properties, ui
+from . import compositor, coverage, operators, properties, ui, viewport
 
 CLASSES = properties.CLASSES + operators.CLASSES + ui.CLASSES
 
@@ -66,6 +68,7 @@ def _unregister_existing(*, all_copies=False):
     if bpy.app.timers.is_registered(_initialize_scenes):
         bpy.app.timers.unregister(_initialize_scenes)
     coverage.unregister_handlers(all_copies=all_copies)
+    viewport.unregister_handlers(all_copies=all_copies)
     # Freeze before deleting RNA properties so the native graph remains usable.
     for scene in getattr(bpy.data, 'scenes', ()):
         node = compositor.effect_node(scene)
@@ -90,6 +93,7 @@ def _initialize_scenes():
             compositor.upgrade(scene)
             compositor.bind_controls(node, scene)
             coverage.sync_scene(scene)
+    viewport.sync_all(loaded=True)
     return None
 
 
@@ -103,6 +107,7 @@ def register():
             name='Use ASCII', description='Disable to keep this object in its original rendered style',
             get=properties.object_ascii_get, set=properties.object_ascii_set, options=set())
         coverage.register_handlers()
+        viewport.register_handlers()
         if hasattr(bpy.data, 'scenes'):
             _initialize_scenes()
         else:

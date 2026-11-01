@@ -22,11 +22,15 @@ def descriptor(char):
 
 def descriptors_for(atlas):
     chars = atlas['ascii_characters']
-    entries = sorted(((i, *descriptor(char)) for i, char in enumerate(chars)), key=lambda e: e[2])
+    # Repeated Custom entries still affect Classic, but must not crowd all five
+    # Smart candidates with copies of the same shape.
+    unique = dict.fromkeys(chars)
+    entries = sorted(((chars.index(char), *descriptor(char)) for char in unique),
+                     key=lambda e: (e[2], chars[e[0]]))
     peak = max(e[2] for e in entries) or 1
-    count = len(chars)
+    count = len(entries)
     first = [v for _, features, _ in entries for v in features[:4]]
-    second = [v for i, features, mean in entries for v in (*features[4:], i / (count - 1), mean / peak)]
+    second = [v for i, features, mean in entries for v in (*features[4:], i / (len(chars) - 1), mean / peak)]
     # Coverage, rather than ramp position, locates the five-candidate window.
     order = []
     for level in range(256):
@@ -35,7 +39,7 @@ def descriptors_for(atlas):
     images = []
     for suffix, width, pixels in (('Descriptors', count, first),
                                   ('Features', count, second), ('Density Order', 256, order)):
-        name = atlas.name.replace('Atlas', suffix)
+        name = atlas.name.replace('Atlas', suffix + ' 2x3')
         image = bpy.data.images.get(name)
         if image is None:
             image = bpy.data.images.new(name, width=width, height=1, alpha=True, float_buffer=True)
@@ -121,7 +125,8 @@ def match(g, inputs, tone, pattern, ramp, atlas):
         image = g.node('CompositorNodeImage', label)
         image.image = atlas_image
         images.append(image.outputs[0])
-    count = len(ramp) + 4
+    count = len(set(ramp + '-|/\\'))
+    atlas_count = len(ramp) + 4
     order = g.sample(images[2], tone, 0.5, 'Coverage rank', nearest=True)
     channels = g.node('CompositorNodeSeparateColor', 'Coverage rank value')
     g.put(channels.inputs[0], order)
@@ -144,7 +149,7 @@ def match(g, inputs, tone, pattern, ramp, atlas):
         distance = g.math('SUBTRACT', extra.outputs[3], tone)
         score = g.math('ADD', g.math('MULTIPLY', g.math('MULTIPLY', score, inputs['Shape Strength']), 1/6),
                        g.math('MULTIPLY', g.math('MULTIPLY', distance, distance), 2))
-        atlas_index = g.math('ROUND', g.math('MULTIPLY', extra.outputs[2], count - 1,
+        atlas_index = g.math('ROUND', g.math('MULTIPLY', extra.outputs[2], atlas_count - 1,
             label=f'Smart atlas count {offset}'))
         if best_score is not None:
             wins = g.math('LESS_THAN', score, best_score)

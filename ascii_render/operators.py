@@ -13,14 +13,10 @@ def _viewport_spaces(context):
 
 
 def start_preview(context):
-    found = False
-    for space in _viewport_spaces(context):
-        space.shading.type = 'RENDERED'
-        space.shading.use_compositor = context.scene.ascii_render.preview_mode
-        if context.scene.ascii_render.preview_mode == 'CAMERA' and context.scene.camera:
-            space.region_3d.view_perspective = 'CAMERA'
-        found = True
-    return found
+    context.scene.ascii_render.preview_in_viewport = True
+    from .viewport import sync_all
+    sync_all()
+    return any(_viewport_spaces(context))
 
 
 class ASCII_OT_setup(bpy.types.Operator):
@@ -54,7 +50,7 @@ class ASCII_OT_remove(bpy.types.Operator):
 class ASCII_OT_preview(bpy.types.Operator):
     bl_idname = 'ascii_render.preview'
     bl_label = 'Live Preview'
-    bl_description = 'Switch 3D views to Rendered mode and show ASCII compositing'
+    bl_description = 'Show ASCII in Rendered or Material Preview without changing shading or view direction'
 
     def execute(self, context):
         if context.scene.ascii_render.preview_mode == 'CAMERA' and context.scene.camera is None:
@@ -69,11 +65,10 @@ class ASCII_OT_preview(bpy.types.Operator):
 class ASCII_OT_stop_preview(bpy.types.Operator):
     bl_idname = 'ascii_render.stop_preview'
     bl_label = 'Hide Preview'
-    bl_description = 'Disable viewport compositing; final renders still use ASCII'
+    bl_description = 'Restore previous viewport compositor settings; final renders still use ASCII'
 
     def execute(self, context):
-        for space in _viewport_spaces(context):
-            space.shading.use_compositor = 'DISABLED'
+        context.scene.ascii_render.preview_in_viewport = False
         return {'FINISHED'}
 
 

@@ -13,6 +13,11 @@ def _refresh_mask(self, context):
     sync_scene(self.id_data)
 
 
+def _refresh_preview(self, context):
+    from .viewport import sync_all
+    sync_all()
+
+
 def object_ascii_get(obj):
     from .coverage import EXCLUDE_KEY
     return not bool(obj.get(EXCLUDE_KEY, 0))
@@ -28,7 +33,7 @@ def object_ascii_set(obj, value):
 
 class ASCII_RenderSettings(bpy.types.PropertyGroup):
     enabled: BoolProperty(name='Enable ASCII', default=True,
-        description='Apply ASCII to the scene compositor output')
+        description='Apply ASCII to the scene compositor output', update=_refresh_preview)
     match_mode: EnumProperty(name='Matching', default='CLASSIC',
         items=[('CLASSIC', 'Classic', 'Original brightness ramp and contour selection', 0),
                ('SMART', 'Smart', 'Six subcell samples, local tone and 2x3 ink-shape matching', 1)],
@@ -114,9 +119,18 @@ class ASCII_RenderSettings(bpy.types.PropertyGroup):
         update=_refresh_mask)
     strength: FloatProperty(name='Strength', default=1, min=0, max=1, subtype='FACTOR',
         description='Mix the original image with ASCII')
-    preview_mode: EnumProperty(name='Preview Area', default='CAMERA', options=set(),
+    grid_mode: EnumProperty(name='Grid Size', default='COLUMNS',
+        items=[('COLUMNS', 'Columns', 'Keep the same number of columns in viewport and render', 0),
+               ('PIXELS', 'Cell Pixels', 'Keep cell width in compositor input pixels; column counts differ at different resolutions', 1)])
+    cell_pixels: FloatProperty(name='Cell Width', default=12, min=8, max=128, subtype='PIXEL',
+        description='Cell width in compositor input pixels after viewport resolution scaling; independent of UI scaling')
+    preview_in_viewport: BoolProperty(name='Preview in Viewport', default=False, options=set(),
+        description='Show ASCII in current and newly opened 3D views; use Rendered or Material Preview. Cycles live has no object/world masks or Diffuse Color pass',
+        update=_refresh_preview)
+    preview_mode: EnumProperty(name='Preview Area', default='ALWAYS', options=set(),
         items=[('CAMERA', 'Camera', 'Preview compositing in camera view'),
-               ('ALWAYS', 'Whole Viewport', 'Preview compositing in the entire rendered viewport')])
+               ('ALWAYS', 'Whole Viewport', 'Preview compositing in free and camera views')],
+        update=_refresh_preview)
 
 
 CLASSES = (ASCII_RenderSettings,)

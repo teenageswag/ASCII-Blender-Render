@@ -6,7 +6,7 @@ from .glyphs import atlas_for, character_ramp
 from . import smart
 
 OWNER = 'ascii_render_owned'
-SCHEMA = 4
+SCHEMA = 6
 
 # All changing numbers are group inputs driven from the owning Scene. This keeps
 # animation in Blender's dependency graph; there are no per-frame Python hooks.
@@ -28,7 +28,7 @@ CONTROLS = (
     ('Strength', 'NodeSocketFloat', 'strength', 'value'),
     ('Enabled', 'NodeSocketFloat', 'enabled', 'value'),
     ('World Mode', 'NodeSocketFloat', 'world_mode', 'value'),
-    ('Match Mode', 'NodeSocketFloat', 'match_mode', 'value'),
+    ('Match Mode', 'NodeSocketBool', 'match_mode', 'value'),
     ('Adaptive Strength', 'NodeSocketFloat', 'adaptive_strength', 'value'),
     ('Adaptive Floor', 'NodeSocketFloat', 'adaptive_floor', 'value'),
     ('Shape Strength', 'NodeSocketFloat', 'shape_strength', 'value'),
@@ -39,6 +39,8 @@ CONTROLS = (
     ('Minimum Contrast', 'NodeSocketFloat', 'min_contrast', 'value'),
     ('Remove Original Edge', 'NodeSocketFloat', 'remove_original_edge', 'value'),
     ('Edge Coverage Threshold', 'NodeSocketFloat', 'edge_mask_threshold', 'value'),
+    ('Grid Mode', 'NodeSocketFloat', 'grid_mode', 'value'),
+    ('Cell Pixels', 'NodeSocketFloat', 'cell_pixels', 'value'),
 )
 
 
@@ -99,6 +101,16 @@ class Graph:
         self.put(node.inputs['UV'], self.xyz(u, v, label=label + ' UV'))
         return node.outputs[0]
 
+    def switch(self, condition, off, on, label, color=False):
+        # 5.2 static lazy evaluation requires a BOOLEAN Group Input connected
+        # directly to the modern Switch. Float-to-bool conversion defeats it.
+        node = self.node('GeometryNodeSwitch', label)
+        node.input_type = 'RGBA' if color else 'FLOAT'
+        self.put(node.inputs['Switch'], condition)
+        self.put(node.inputs['False'], off)
+        self.put(node.inputs['True'], on)
+        return node.outputs[0]
+
     def luminance(self, image, label):
         node = self.node('CompositorNodeRGBToBW', label)
         self.put(node.inputs[0], image)
@@ -125,7 +137,11 @@ def build_effect(settings):
     coords = g.node('CompositorNodeImageCoordinates', 'Image coordinates')
     g.put(coords.inputs[0], original)
     uv = g.separate(coords.outputs['Normalized'], 'Normalized coordinates')
-    columns = g.math('MAXIMUM', inputs['Columns'], 1)
+    columns = g.mix(inputs['Grid Mode'], inputs['Columns'],
+                    g.math('DIVIDE', dimensions[0], inputs['Cell Pixels']))
+    columns = g.math('MAXIMUM', g.switch(inputs['Match Mode'], columns,
+        g.math('MINIMUM', columns, g.math('DIVIDE', dimensions[0], 8)), 'Smart minimum cell size'), 1,
+        label='Effective columns')
     rows = g.math('MAXIMUM', g.math('ROUND', g.math('DIVIDE',
         g.math('MULTIPLY', columns, g.math('DIVIDE', dimensions[1], dimensions[0])), inputs['Cell Aspect'])), 1)
     gx, gy = g.math('MULTIPLY', uv[0], columns), g.math('MULTIPLY', uv[1], rows)
@@ -154,7 +170,7 @@ def build_effect(settings):
     smart_tone, pattern, smart_dx, smart_dy = smart.analyze(
         g, inputs, original, dimensions, columns, rows, center_u, center_v)
     smart_index = smart.match(g, inputs, smart_tone, pattern, ramp, atlas_image)
-    index = g.mix(inputs['Match Mode'], index, smart_index, label='Classic or Smart matching')
+    index = g.switch(inputs['Match Mode'], index, smart_index, 'Classic or Smart matching')
 
     # Central differences at cell boundaries give a gradient shared by the whole
     # cell. Its perpendicular selects -, |, / or \\ as the contour tangent.
@@ -170,8 +186,8 @@ def build_effect(settings):
         neighbors.append(g.math('POWER', g.math('MAXIMUM', value, 0), 1 / 2.2))
     dx = g.math('SUBTRACT', neighbors[1], neighbors[0])
     dy = g.math('SUBTRACT', neighbors[3], neighbors[2])
-    dx = g.mix(inputs['Match Mode'], dx, smart_dx)
-    dy = g.mix(inputs['Match Mode'], dy, smart_dy)
+    dx = g.switch(inputs['Match Mode'], dx, smart_dx, 'Classic or Smart gradient X')
+    dy = g.switch(inputs['Match Mode'], dy, smart_dy, 'Classic or Smart gradient Y')
     ax, ay = g.math('ABSOLUTE', dx), g.math('ABSOLUTE', dy)
     magnitude = g.math('SQRT', g.math('ADD', g.math('MULTIPLY', dx, dx), g.math('MULTIPLY', dy, dy)))
     diagonal = g.mix(g.math('GREATER_THAN', g.math('MULTIPLY', dx, dy), 0), 2, 3)
@@ -189,7 +205,7 @@ def build_effect(settings):
     varying_scale = g.mix(importance, small, large, label='Per-cell glyph size')
     smart_scale = g.math('MINIMUM', g.math('MULTIPLY', inputs['Glyph Scale'],
         g.mix(inputs['Scale Strength'], 1, varying_scale)), 1)
-    scale = g.mix(inputs['Match Mode'], inputs['Glyph Scale'], smart_scale)
+    scale = g.switch(inputs['Match Mode'], inputs['Glyph Scale'], smart_scale, 'Classic or Smart scale')
     local_u = g.math('ADD', g.math('DIVIDE', g.math('SUBTRACT', local_u, 0.5), scale), 0.5)
     local_v = g.math('ADD', g.math('DIVIDE', g.math('SUBTRACT', local_v, 0.5), scale), 0.5)
     bounds = 1.0
@@ -218,7 +234,7 @@ def build_effect(settings):
     smart_ink = smart.readable_color(g, smart_ink, inputs['Background'],
         g.mix(inputs['Color Mode'], 1, inputs['Saturation']),
         g.mix(inputs['Color Mode'], 1, inputs['Color Gain']), inputs['Minimum Contrast'])
-    ink = g.mix(inputs['Match Mode'], ink, smart_ink, color=True, label='Classic or Smart ink')
+    ink = g.switch(inputs['Match Mode'], ink, smart_ink, 'Classic or Smart ink', color=True)
     background = g.mix(inputs['Transparent'], inputs['Background'], (0, 0, 0, 1), color=True, label='Background color')
     art = g.mix(mask, background, ink, color=True, label='Draw glyphs')
     alpha = g.node('CompositorNodeSetAlpha', 'Output transparency')
@@ -316,6 +332,8 @@ def upgrade(scene):
     node.node_tree = build_effect(scene.ascii_render)
     for name, value in values.items():
         if name in node.inputs:
+            if isinstance(node.inputs[name], bpy.types.NodeSocketBool):
+                value = bool(value)
             node.inputs[name].default_value = value
     for name, source in links:
         if name in node.inputs:
@@ -402,10 +420,11 @@ def refresh_atlas(scene):
     tree.nodes['Contour atlas offset'].inputs[1].default_value = len(ramp)
     tree.nodes['Atlas U'].inputs[1].default_value = len(ramp) + 4
     count = len(ramp) + 4
-    tree.nodes['Smart rank count'].inputs[1].default_value = count - 1
+    candidates = len(set(ramp + '-|/\\'))
+    tree.nodes['Smart rank count'].inputs[1].default_value = candidates - 1
     for offset in (0, -1, 1, -2, 2):
-        tree.nodes[f'Smart candidate {offset}'].inputs[1].default_value = count - 1
-        tree.nodes[f'Descriptor U {offset}'].inputs[1].default_value = count
+        tree.nodes[f'Smart candidate {offset}'].inputs[1].default_value = candidates - 1
+        tree.nodes[f'Descriptor U {offset}'].inputs[1].default_value = candidates
         tree.nodes[f'Smart atlas count {offset}'].inputs[1].default_value = count - 1
     for old in old_images:
         if old.users == 0 and old.get(OWNER):
@@ -413,6 +432,8 @@ def refresh_atlas(scene):
 
 
 def remove(scene):
+    from .viewport import restore
+    restore(scene)
     node = effect_node(scene)
     if node is None:
         return

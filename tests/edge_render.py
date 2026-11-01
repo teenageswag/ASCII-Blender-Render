@@ -4,7 +4,6 @@ import sys
 
 import bpy
 import numpy as np
-from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -95,4 +94,15 @@ settings.world_mode = 'ASCII'
 native.ascii_render_enabled = True
 full = render('full')
 assert np.abs(full[:, :, 0] - full[:, :, 1]).max() < 1e-5, 'Full-frame must contain only monochrome ASCII'
+scene.render.engine = 'BLENDER_EEVEE'
+native.ascii_render_enabled = False
+settings.world_mode = 'ORIGINAL'
+tree.links.new(mask_source.outputs[coverage.AOV_NAME], output.inputs['Image'])
+eevee_mask = render('eevee_mask')
+tree.links.new(node.outputs[0], output.inputs['Image'])
+coverage_value = eevee_mask[:, :, 1] - eevee_mask[:, :, 0]
+eevee_ring = (coverage_value > settings.edge_mask_threshold) & (coverage_value < 0.99) & (eevee_mask[:, :, 0] < 1e-6)
+assert eevee_ring.sum() > 50
+eevee_clean = render('eevee_clean')
+assert np.abs(eevee_clean[eevee_ring, 0] - eevee_clean[eevee_ring, 1]).max() < 1e-5
 print('ALL_EDGE_TESTS_PASSED', 'ring_pixels', int(ring.sum()), flush=True)
