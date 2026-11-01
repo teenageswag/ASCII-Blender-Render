@@ -6,7 +6,7 @@ from .glyphs import atlas_for, character_ramp
 from . import smart
 
 OWNER = 'ascii_render_owned'
-SCHEMA = 6
+SCHEMA = 7
 
 # All changing numbers are group inputs driven from the owning Scene. This keeps
 # animation in Blender's dependency graph; there are no per-frame Python hooks.
@@ -325,11 +325,27 @@ def upgrade(scene):
     if node is None or node.node_tree.get('ascii_schema', 0) >= SCHEMA:
         return
     old = node.node_tree
-    links = [(socket.name, socket.links[0].from_socket) for socket in node.inputs if socket.is_linked]
+    tree = scene.compositing_node_group
+    controls = {name for name, _, _, _ in CONTROLS}
+    # Group interface identifiers change when sockets are inserted. Blender can
+    # retain an old mask link on an unrelated numeric input, and drop output
+    # links entirely. Restore both directions explicitly by semantic name.
+    links = [(socket.name, socket.links[0].from_socket) for socket in node.inputs
+             if socket.is_linked and socket.name not in controls]
+    destinations = [(socket.name, link.to_socket) for socket in node.outputs for link in socket.links]
+    if not destinations:
+        # Recover the main output of projects already migrated by 1.2.0.
+        output = next((n for n in tree.nodes if n.type == 'GROUP_OUTPUT' and n.is_active_output), None)
+        image = next((s for s in output.inputs if s.type == 'RGBA'), None) if output else None
+        if image is not None and not image.is_linked:
+            destinations.append(('Image', image))
     values = {socket.name: socket.default_value[:] if socket.type in {'RGBA', 'VECTOR'} else socket.default_value
               for socket in node.inputs if hasattr(socket, 'default_value')}
     freeze_controls(node)
     node.node_tree = build_effect(scene.ascii_render)
+    for socket in node.inputs:
+        for link in list(socket.links):
+            tree.links.remove(link)
     for name, value in values.items():
         if name in node.inputs:
             if isinstance(node.inputs[name], bpy.types.NodeSocketBool):
@@ -337,7 +353,10 @@ def upgrade(scene):
             node.inputs[name].default_value = value
     for name, source in links:
         if name in node.inputs:
-            scene.compositing_node_group.links.new(source, node.inputs[name])
+            tree.links.new(source, node.inputs[name])
+    for name, target in destinations:
+        if name in node.outputs:
+            tree.links.new(node.outputs[name], target)
     bind_controls(node, scene)
     if old.users == 0:
         bpy.data.node_groups.remove(old)

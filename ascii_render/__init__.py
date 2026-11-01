@@ -3,7 +3,7 @@
 bl_info = {
     'name': 'ASCII Render',
     'author': 'ASCII Render contributors',
-    'version': (1, 2, 0),
+    'version': (1, 2, 1),
     'blender': (5, 2, 0),
     'location': 'Render Properties > ASCII Render; 3D View > Sidebar > ASCII',
     'description': 'Live ASCII compositing, still renders and animation',

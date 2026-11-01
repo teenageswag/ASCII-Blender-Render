@@ -1,6 +1,6 @@
 # ASCII Render
 
-[English](../README.md) · [Скачать 1.2.0](../releases/ascii_render-1.2.0.zip?raw=1) · [Демосцена](../examples/selective.blend?raw=1)
+[English](../README.md) · [Скачать 1.2.1](../releases/ascii_render-1.2.1.zip?raw=1) · [Демосцена](../examples/selective.blend?raw=1)
 
 ![Куб в ASCII и цилиндр с обычным шейдингом](images/hero.png)
 
@@ -11,10 +11,14 @@
 
 ## Установка
 
-1. Возьми файл **dist/ascii_render-1.2.0.zip**. **Не распаковывай его.**
+1. Возьми файл **dist/ascii_render-1.2.1.zip**. **Не распаковывай его.**
 2. В Blender открой **Edit → Preferences → Add-ons**.
 3. В меню **▼** справа сверху выбери **Install from Disk…**, укажи ZIP и подтверди установку.
 4. Если аддон не включился автоматически, включи **ASCII Render**.
+
+**1.2.1 исправляет исчезновение ASCII после обновления старой сцены.**
+Миграция сохраняет входные и выходные подключения и автоматически восстанавливает
+графы, повреждённые версией 1.2.0. Настройки сцены и объектов сохраняются.
 
 Версия **1.2.0** добавляет Smart, чистые силуэты и обратимый preview в свободном viewport. Повторное включение и reload по-прежнему поддерживаются.
 
@@ -192,7 +196,7 @@ blender --background --factory-startup --python-exit-code 1 --python tests/smart
 blender --background --factory-startup --python-exit-code 1 --python tests/smart_nodes.py
 blender --background --factory-startup --python-exit-code 1 --python tests/edge_render.py
 blender --background --factory-startup --python-exit-code 1 --python tests/viewport_preview.py
-blender --background --factory-startup --command extension validate dist/ascii_render-1.2.0.zip
+blender --background --factory-startup --command extension validate dist/ascii_render-1.2.1.zip
 ~~~
 
 Рендеры, трёхкадровая анимация и демосцена сохраняются в **build/verification**.

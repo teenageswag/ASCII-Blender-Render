@@ -13,7 +13,7 @@ The copy in **releases/** is the downloadable package committed with this releas
 Validate the archive with Blender:
 
 ~~~sh
-blender --background --factory-startup --command extension validate dist/ascii_render-1.2.0.zip
+blender --background --factory-startup --command extension validate dist/ascii_render-1.2.1.zip
 ~~~
 
 ## Checks
@@ -101,3 +101,14 @@ through a Raw-view diagnostic screenshot in the actual free viewport.
 `blender --factory-startup --python tests/viewport_ui.py` checks real main windows,
 independent scenes, workspaces and fullscreen transitions in an isolated UI session.
 It quits automatically; do not run it inside an existing user session.
+
+## 1.2.1 migration repair
+
+Group-interface identifiers change when sockets are inserted. Migration now clears
+retargeted input links, restores image/mask inputs and all captured output targets
+by semantic name, and repairs an unlinked active Group Output left by 1.2.0.
+Scene-driven control sockets cannot retain a shader-AOV connection.
+
+`tests/upgrade_registration.py` upgrades a real 1.1.1 selective graph with both
+Group Output and Viewer attached. `tests/migration_render.py` saves and reloads
+a broken schema-6 scene and checks visible Smart glyphs in CPU and GPU compositors.
