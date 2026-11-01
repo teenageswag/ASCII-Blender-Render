@@ -40,6 +40,9 @@ def draw_panel(layout, context):
     row.operator('ascii_render.selected', text='Include Selected').enabled = True
     row.operator('ascii_render.selected', text='Exclude Selected').enabled = False
     box.prop(settings, 'world_mode', text='World')
+    box.prop(settings, 'remove_original_edge')
+    if settings.remove_original_edge:
+        box.prop(settings, 'edge_mask_threshold')
     from .coverage import needs_mask
     if needs_mask(scene):
         box.prop_search(settings, 'mask_view_layer', scene, 'view_layers', text='Mask Layer')

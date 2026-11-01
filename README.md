@@ -38,6 +38,8 @@ The **World** setting controls the background:
 If your backdrop is a plane, exclude that plane as an object.
 To export transparency, use PNG RGBA or OpenEXR.
 
+**Remove Original Edge** is on by default. It fully replaces pixels whose ASCII-surface coverage exceeds **Edge Coverage Threshold** (default 0.01), eliminating the original shaded fringe. It does not expand the mask into the world or fully covered native objects. The silhouette, including transparent-world alpha, becomes harder; disable it for the original antialiased blend. At Strength below 1, the original is intentionally blended back. Full-frame ASCII already replaces the entire source image.
+
 | Original world texture | Transparent world |
 | :---: | :---: |
 | ![ASCII cube and shaded cylinder over the original world texture](docs/images/original-world.png) | ![The same objects with the world removed](docs/images/transparent-world.png) |

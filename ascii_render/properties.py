@@ -53,6 +53,11 @@ class ASCII_RenderSettings(bpy.types.PropertyGroup):
         description='Saturation of Smart scene-colored glyphs')
     min_contrast: FloatProperty(name='Minimum Contrast', default=0.18, min=0, max=0.5,
         description='Minimum linear-luminance gap between opaque Smart ink and Background at full Strength; transparency uses this reference color')
+    remove_original_edge: BoolProperty(name='Remove Original Edge', default=True,
+        description='Fully replace pixels covered by ASCII surfaces; removes native antialiasing fringe and hardens the silhouette at full Strength')
+    edge_mask_threshold: FloatProperty(name='Edge Coverage Threshold', default=0.01,
+        min=0.001, max=0.1, precision=3,
+        description='Minimum surface coverage to replace completely; lower values remove finer filtered fringes without expanding into neighboring objects')
     columns: IntProperty(name='Columns', default=120, min=8, max=600, soft_max=240,
         description='Number of characters across the image; more columns means smaller characters')
     cell_aspect: FloatProperty(name='Cell Aspect', default=1.5, min=0.5, max=3.0,

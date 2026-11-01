@@ -6,7 +6,7 @@ from .glyphs import atlas_for, character_ramp
 from . import smart
 
 OWNER = 'ascii_render_owned'
-SCHEMA = 3
+SCHEMA = 4
 
 # All changing numbers are group inputs driven from the owning Scene. This keeps
 # animation in Blender's dependency graph; there are no per-frame Python hooks.
@@ -37,6 +37,8 @@ CONTROLS = (
     ('Scale Strength', 'NodeSocketFloat', 'scale_strength', 'value'),
     ('Saturation', 'NodeSocketFloat', 'saturation', 'value'),
     ('Minimum Contrast', 'NodeSocketFloat', 'min_contrast', 'value'),
+    ('Remove Original Edge', 'NodeSocketFloat', 'remove_original_edge', 'value'),
+    ('Edge Coverage Threshold', 'NodeSocketFloat', 'edge_mask_threshold', 'value'),
 )
 
 
@@ -238,6 +240,12 @@ def build_effect(settings):
     base = g.mix(world_replaced, original, world_base, color=True, label='Original or replaced world')
     coverage = g.mix(world_ascii, surface, 1, label='Include world in ASCII')
     coverage = g.math('SUBTRACT', coverage, excluded, clamp=True)
+    # Only pixels with an actual included-surface contribution are hardened.
+    # Thresholding 1-excluded would also eat native objects' antialiased edges.
+    included = g.math('SUBTRACT', surface, excluded, clamp=True)
+    edge_coverage = g.math('GREATER_THAN', included, inputs['Edge Coverage Threshold'])
+    coverage = g.mix(g.math('MULTIPLY', inputs['Remove Original Edge'], edge_coverage),
+                     coverage, 1, label='Remove native surface fringe')
     selective = g.mix(coverage, base, art, color=True, label='Object and world selection')
     # An unavailable Cycles viewport pass is a constant, not an image. Keep the
     # full-image ASCII preview in that case; EEVEE supplies the actual AOV.
